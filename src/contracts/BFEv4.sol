@@ -74,8 +74,8 @@ contract BFEv4 {
         FoodItem memory item = menu[id];
         require(count <= item.qty, "Requirement not met");
         require(item.qty > 0, "Item Unavailable");
-        uint itemCost = item.price * count * 1 ether;
-        require(msg.value == itemCost, "Please send proper money");
+        // uint itemCost = item.price * count * 1 ether;
+        // require(msg.value == itemCost, "Please send proper money");
         address payable seller = item.seller;
         seller.transfer(msg.value);
         item.qty -= count;
