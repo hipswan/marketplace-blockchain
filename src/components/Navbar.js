@@ -18,6 +18,13 @@ class Navbar extends Component {
             <small className="text-white"><span id="account">{this.props.account}</span></small>
           </li>
         </ul>
+        {this.props.isreg &&
+        <button onClick={(event)=>{
+          event.preventDefault()
+         this.props.logout()
+        }}  className="btn btn-primary">
+        Logout
+        </button>}
       </nav>
     );
   }

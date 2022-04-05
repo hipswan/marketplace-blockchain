@@ -1,5 +1,5 @@
-const Marketplace = artifacts.require("Marketplace");
+const BFEv4 = artifacts.require("BFEv4");
 
 module.exports = function(deployer) {
-  deployer.deploy(Marketplace);
+  deployer.deploy(BFEv4);
 };
