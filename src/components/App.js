@@ -5,6 +5,7 @@ import Navbar from "./Navbar";
 import BFE from "../abis/BFEv4.json";
 import RegisterForm from "./RegisterForm";
 import { initializeApp } from "firebase/app";
+
 import {
   getFirestore,
   collection,
@@ -23,6 +24,7 @@ import {
 import { config } from "../utils/config.ts";
 import Seller from "./Seller";
 import Buyer from "./Buyer";
+import Delivery from "./Delivery";
 
 class App extends Component {
   async componentWillMount() {
@@ -55,6 +57,17 @@ class App extends Component {
       type: type,
       txHash: txHash,
     });
+
+    if (type == "delivery") {
+      const delivery = collection(this.db, "delivery");
+      const deliveryRef = doc(delivery, this.state.account);
+      await setDoc(deliveryRef, {
+        name: name,
+        id: id,
+        pastDeliveries: [],
+        available: true,
+      });
+    }
   }
 
   async deleteUser() {
@@ -92,14 +105,32 @@ class App extends Component {
     });
   }
 
-  async updateProduct(productId, sellerId, quantity,count) {
+  async updateProduct(productId, sellerId, quantity, count) {
     const sellerRef = doc(this.db, "sellers", sellerId);
-    const productRef= doc(sellerRef, "products", productId);
+    const productRef = doc(sellerRef, "products", productId);
     await updateDoc(productRef, {
-      quantity: quantity-count,
+      quantity: quantity - count,
     });
-    this.state.products =[]
+    this.state.products = [];
     this.loadAllProducts();
+  }
+
+  async getAvailableDeliveryPerson() {
+    const delivery = query(
+      collection(this.db, "delivery"),
+      where("available", "==", true)
+    );
+    const deliverySnapshot = await getDocs(delivery);
+    return deliverySnapshot.docs[0].id;
+    // this.setState({
+    //   deliveryPerson: deliverySnapshot.docs[0].data(),
+    // });
+  }
+
+  async notifyDeliveryPerson(deliveryPersonAddress) {
+    await updateDoc(doc(this.db, "delivery", deliveryPersonAddress), {
+      available: false,
+    });
   }
 
   async loadAllProducts() {
@@ -120,13 +151,14 @@ class App extends Component {
         // doc.data() is never undefined for query doc snapshots
         console.log(doc.id, " => ", doc.data());
         this.setState({
-          products: [...this.state.products, { ...doc.data(), sellerId: e.id,productId:doc.id }],
+          products: [
+            ...this.state.products,
+            { ...doc.data(), sellerId: e.id, productId: doc.id },
+          ],
         });
       });
     });
-  } 
-
-  
+  }
 
   async loadProducts() {
     debugger;
@@ -195,6 +227,7 @@ class App extends Component {
         loading: false,
         registered: currentUserDetails.reg,
         isSeller: currentUserDetails.userType === "1" ? true : false,
+        isDelivery: currentUserDetails.userType === "2" ? true : false,
       });
     } else {
       window.alert("BFE contract not deployed to detected network.");
@@ -211,30 +244,64 @@ class App extends Component {
       registered: false,
       isSeller: false,
       products: [],
+      isDelivery: false,
     };
     this.registerUser = this.registerUser.bind(this);
     this.unregisterUser = this.unregisterUser.bind(this);
     this.createProduct = this.createProduct.bind(this);
     this.buyProduct = this.buyProduct.bind(this);
   }
+  async buyProduct(
+    blockId,
+    productId,
+    quantity,
+    sellerId,
+    count,
+    price,
+    isDelivery
+  ) {
+    var totalPrice = count.toNumber() * parseInt(price);
+    const margin = 0.05;
+    totalPrice += margin;
+    var deliveryPerson = this.state.account;
+    var deliveryCost = 0;
+    if (isDelivery) {
+      deliveryCost = Math.max(1, totalPrice * 0.05);
+      totalPrice += deliveryCost;
+      deliveryPerson = await this.getAvailableDeliveryPerson();
+      if (!deliveryPerson) {
+        alert("No delivery person available");
+        return;
+      }
+      console.log("deliveryPerson", deliveryPerson);
+    }
 
-  buyProduct(blockId,productId, quantity,sellerId,count,price) {
-    const totalPrice =count.toNumber() * parseInt(price);
     this.setState({ loading: true });
-    this.state.bfe.methods
-      .Buy(blockId, count)
-      .send({ from: this.state.account ,value: window.web3.utils.toWei(totalPrice.toString())})
-      .once("receipt", async (receipt) => {
 
-        const buyMetaData =
-          receipt["events"]["FoodItemBought"]["returnValues"];
+    this.state.bfe.methods
+      .Buy(
+        blockId,
+        count,
+        isDelivery,
+        window.web3.utils.toWei(deliveryCost.toString(), "ether"),
+        deliveryPerson
+      )
+      .send({
+        from: this.state.account,
+        value: window.web3.utils.toWei(totalPrice.toString(), "ether"),
+      })
+      .once("receipt", async (receipt) => {
+        const buyMetaData = receipt["events"]["FoodItemBought"]["returnValues"];
         console.log("buyMetaData", buyMetaData);
-        
+
+        if (isDelivery) {
+          await this.notifyDeliveryPerson(deliveryPerson);
+        }
         await this.updateProduct(
           productId,
           sellerId,
           quantity.toNumber(),
-          count.toNumber(),
+          count.toNumber()
         );
 
         this.setState({ loading: false });
@@ -285,12 +352,15 @@ class App extends Component {
   registerUser(name, userType) {
     this.setState({ loading: true });
 
-    var userTypeValue = window.web3.utils.toBN(userType === "seller" ? 1 : 0);
+    var userTypeValue = window.web3.utils.toBN(
+      userType === "seller" ? "1" : userType === "delivery" ? "2" : "0"
+    );
 
     this.state.bfe.methods
       .UserReg(name, userTypeValue)
       .send({ from: this.state.account })
       .once("receipt", async (receipt) => {
+        console.log(receipt);
         var userMetaData = receipt["events"]["UserRegistered"]["returnValues"];
         await this.setUserDetails(
           name,
@@ -303,6 +373,7 @@ class App extends Component {
           loading: false,
           registered: true,
           isSeller: userType === "seller" ? true : false,
+          isDelivery: userType === "delivery" ? true : false,
         });
       });
   }
@@ -335,6 +406,12 @@ class App extends Component {
                 >
                   {" "}
                 </Seller>
+              ) : this.state.isDelivery ? (
+                <Delivery
+                  delivery={this.state.delivery}
+                  accountDetails={this.state.account}
+                  pastDeliveries={this.state.pastDeliveries}
+                ></Delivery>
               ) : (
                 <Buyer
                   accountDetails={this.state.account}

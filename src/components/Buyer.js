@@ -1,6 +1,16 @@
 import React, { Component } from "react";
-
+import Switch from "react-switch";
 class Buyer extends Component {
+  constructor() {
+    super();
+    this.state = { checked: false };
+    this.handleChange = this.handleChange.bind(this);
+  }
+
+  handleChange(checked) {
+    this.setState({ checked });
+  }
+
   render() {
     return (
       <div id="content">
@@ -8,6 +18,10 @@ class Buyer extends Component {
 
         <p>&nbsp;</p>
         <h2>Product Details</h2>
+        <label>
+          <span> Delivery  </span>
+          <Switch onChange={this.handleChange} checked={this.state.checked} />
+        </label>
         <table className="table">
           <thead>
             <tr>
@@ -27,31 +41,43 @@ class Buyer extends Component {
                   <td>{product.price} Eth</td>
                   <td>{product.quantity}</td>
                   <td>
-                    <div class="input-group mb-3">
+                    <div className="input-group mb-3">
                       <input
                         type="text"
                         id="productQuantity"
                         className="form-control"
                         placeholder="Item Quantity"
                         aria-label="Item Quantity"
-                        onChange={(event) => { this.productQuantity = event.target.value }}
+                        onChange={(event) => {
+                          this.productQuantity = event.target.value;
+                        }}
                         aria-describedby="button-addon2"
                       />
                       <button
                         className="btn btn-outline-secondary"
                         type="button"
                         id="button-addon2"
-         
-                        onClick={(event)=>{
-                            debugger;
-                            event.preventDefault()
-                            const quantity = window.web3.utils.toBN(product.quantity)
-      
-                            const blockId = window.web3.utils.toBN(product.id)
-                            const count = window.web3.utils.toBN(this.productQuantity)
-                            this.props.buyProduct(blockId,product.productId, quantity,product.sellerId,count,product.price)
+                        onClick={(event) => {
+                          event.preventDefault();
+                          const quantity = window.web3.utils.toBN(
+                            product.quantity
+                          );
+
+                          console.log(this.switch);
+                          const blockId = window.web3.utils.toBN(product.id);
+                          const count = window.web3.utils.toBN(
+                            this.productQuantity
+                          );
+                          this.props.buyProduct(
+                            blockId,
+                            product.productId,
+                            quantity,
+                            product.sellerId,
+                            count,
+                            product.price,
+                            this.state.checked
+                          );
                         }}
-                        
                       >
                         Buy
                       </button>

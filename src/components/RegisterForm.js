@@ -38,6 +38,8 @@ class RegisterForm extends Component {
           >
             <option>buyer</option>
             <option>seller</option>
+            <option>delivery</option>
+
           </select>
         </div>
         <div className="form-group">
