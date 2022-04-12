@@ -1,10 +1,14 @@
 import React, { Component } from "react";
 
 class Delivery extends Component {
+
+
+
+
   render() {
     return (
       <div id="content">
-        <h1>Hello {this.props.accountDetails}</h1>
+        <h1>Hello {this.props.name}</h1>
 
         <p>&nbsp;</p>
         <h2>Current Delivery</h2>
