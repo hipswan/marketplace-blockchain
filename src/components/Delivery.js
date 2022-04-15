@@ -1,10 +1,7 @@
 import React, { Component } from "react";
+import Button from "@mui/material/Button";
 
 class Delivery extends Component {
-
-
-
-
   render() {
     return (
       <div id="content">
@@ -16,25 +13,41 @@ class Delivery extends Component {
           <thead>
             <tr>
               <th scope="col">#</th>
-              <th scope="col">Seller Name</th>
+
               <th scope="col">Buyer Name</th>
-              <th scope="col">Item Name</th>
               {/* <th scope="col"></th> */}
             </tr>
           </thead>
           <tbody id="delivery">
-            {
-                this.props.delivery ?
-                <tr></tr>
-                //    <tr>
-                //     <th scope="row">{delivery.id.toString()}</th>
-                //     <td>{delivery.sellerName}</td>
-                //     <td>{delivery.buyerName} Eth</td>
-                //     <td>{delivery.itemName}</td>
-                //     <td>{delivery.timeAlloted}</td>
-                //   </tr> 
-                  :<tr><th><p> No Task Assigned Yet</p></th> </tr>
-            }
+            {!this.props.deliveryPerson.available ? (
+              <tr>
+                <th scope="row">1</th>
+                <td>{this.props.deliveryPerson.buyerName}</td>
+                <td>
+                  <Button
+                    onClick={(event) => {
+                      event.preventDefault();
+                      this.props.deliveredProduct();
+                    }}
+                  >
+                    Delivered
+                  </Button>
+                </td>
+              </tr>
+            ) : (
+              //    <tr>
+              //     <th scope="row">{delivery.id.toString()}</th>
+              //     <td>{delivery.sellerName}</td>
+              //     <td>{delivery.buyerName} Eth</td>
+              //     <td>{delivery.itemName}</td>
+              //     <td>{delivery.timeAlloted}</td>
+              //   </tr>
+              <tr>
+                <th>
+                  <p> No Task Assigned Yet</p>
+                </th>
+              </tr>
+            )}
           </tbody>
         </table>
         <h2>Past Deliveries</h2>

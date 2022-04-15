@@ -19,6 +19,7 @@ import {
   query,
   where,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore/lite";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { config } from "../utils/config.ts";
@@ -27,7 +28,7 @@ import Buyer from "./Buyer";
 import Delivery from "./Delivery";
 
 class App extends Component {
-  async componentWillMount() {
+  async UNSAFE_componentWillMount() {
     await this.loadFirebase();
     await this.loadWeb3();
     await this.loadBlockchainData();
@@ -61,7 +62,7 @@ class App extends Component {
       txHash: txHash,
     });
 
-    if (type == "delivery") {
+    if (type === "delivery") {
       const delivery = collection(this.db, "delivery");
       const deliveryRef = doc(delivery, this.state.account);
       await setDoc(deliveryRef, {
@@ -86,16 +87,7 @@ class App extends Component {
     return downloadURL;
   }
 
-  async setProductDetails(
-    name,
-    price,
-    quantity,
-    id,
-    txHash,
-    filePath,
-    gasUsed,
-    sellerName
-  ) {
+  async setProductDetails(name, price, quantity, filePath, sellerName) {
     const sellersRef = collection(this.db, "sellers");
     const sellersDocRef = doc(sellersRef, this.state.account);
     const productsref = collection(sellersDocRef, "products");
@@ -104,37 +96,32 @@ class App extends Component {
       name: name,
       price: price,
       quantity: quantity,
-      id: id,
       timestamp: Timestamp.now(),
-      txHash: txHash,
       image: filePath,
-      gasUsed: gasUsed,
       sellerName: sellerName,
     });
     // console.log((await getDoc(addeddoc)).data());
-    this.setState({
-      products: [
-        ...this.state.products,
-        {
-          name: name,
-          price: price,
-          quantity: quantity,
-          id: id,
-          timestamp: Timestamp.now(),
-          txHash: txHash,
-        },
-      ],
-    });
   }
 
-  async updateProduct(productId, sellerId, quantity, count) {
-    const sellerRef = doc(this.db, "sellers", sellerId);
-    const productRef = doc(sellerRef, "products", productId);
-    await updateDoc(productRef, {
-      quantity: quantity - count,
+  // async updateProduct(productId, sellerId, quantity, count) {
+  //   const sellerRef = doc(this.db, "sellers", sellerId);
+  //   const productRef = doc(sellerRef, "products", productId);
+  //   await updateDoc(productRef, {
+  //     quantity: quantity - count,
+  //   });
+  // }
+
+  async updateMultiDoc(productsPurchased) {
+    debugger;
+    const batch = writeBatch(this.db);
+    productsPurchased.forEach((product) => {
+      const sellerRef = doc(this.db, "sellers", product.sellerId);
+      const productRef = doc(sellerRef, "products", product.productId);
+      batch.update(productRef, {
+        quantity: product.quantity - product.quantityNeeded,
+      });
     });
-    this.state.products = [];
-    this.loadAllProducts();
+    await batch.commit();
   }
 
   async getAvailableDeliveryPerson() {
@@ -149,20 +136,21 @@ class App extends Component {
     // });
   }
 
-  async notifyDeliveryPerson(deliveryPersonAddress, productId, sellerId) {
+  async notifyDeliveryPerson(deliveryPersonAddress, isDelivered) {
     const deliveryRef = doc(this.db, "delivery", deliveryPersonAddress);
 
     await updateDoc(deliveryRef, {
-      available: false,
+      available: isDelivered,
+      buyerName: isDelivered ? "" : this.state.name,
     });
 
-    const pastDeliveriesRef = collection(this.db, "pastDeliveries");
-    await addDoc(pastDeliveriesRef, {
-      deliverProduct: this.state.deliverProduct,
-      buyer: this.state.account,
-      seller: sellerId,
-      productId: productId,
-    });
+    // const pastDeliveriesRef = collection(this.db, "pastDeliveries");
+    // await addDoc(pastDeliveriesRef, {
+    //   deliverProduct: this.state.deliverProduct,
+    //   buyer: this.state.account,
+    //   seller: sellerId,
+    //   productId: productId,
+    // });
   }
 
   async loadAllProducts() {
@@ -200,12 +188,11 @@ class App extends Component {
     filePath,
     sellerName
   ) {
-    debugger;
     const sellersRef = collection(this.db, "sellers");
     const sellersDocRef = doc(sellersRef, this.state.account);
     const productsref = collection(sellersDocRef, "products");
     const productRef = doc(productsref, productId);
-    if (filePath != "") {
+    if (filePath !== "") {
       await updateDoc(productRef, {
         name: productName,
         price: productPrice,
@@ -215,13 +202,12 @@ class App extends Component {
       });
     } else {
       await updateDoc(productRef, {
-       name: productName,
+        name: productName,
         price: productPrice,
         quantity: productQuantity,
         sellerName: sellerName,
       });
     }
-
 
     this.state.products = [];
     await this.loadAllProducts();
@@ -260,6 +246,23 @@ class App extends Component {
       );
     }
   }
+  async loadDeliveryDetails() {
+    const deliveryRef = doc(this.db, "delivery", this.state.account);
+    const deliverySnapshot = await getDoc(deliveryRef);
+    this.setState({
+      deliveryPerson: deliverySnapshot.data(),
+    });
+    const pastDeliveriesRef = collection(deliveryRef, "pastDeliveries");
+    const pastDeliveriesSnapshot = await getDocs(pastDeliveriesRef);
+    pastDeliveriesSnapshot.forEach((doc) => {
+      // doc.data() is never undefined for query doc snapshots
+      // console.log(doc.id, " => ", doc.data());
+
+      this.setState({
+        pastDeliveries: [...this.state.pastDeliveries, doc.data()],
+      });
+    });
+  }
 
   async loadBlockchainData() {
     const web3 = window.web3;
@@ -294,9 +297,11 @@ class App extends Component {
       // const isUserReg = await bfe.methods.isUserReg(this.state.account).call();
 
       if (currentUserDetails.userType === "1") {
-        currentUserDetails.reg && this.loadProducts();
+        currentUserDetails.reg && (await this.loadProducts());
+      } else if (currentUserDetails.userType === "0") {
+        currentUserDetails.reg && (await this.loadAllProducts());
       } else {
-        currentUserDetails.reg && this.loadAllProducts();
+        currentUserDetails.reg && (await this.loadDeliveryDetails());
       }
       this.setState({
         loading: false,
@@ -324,6 +329,7 @@ class App extends Component {
       isSeller: false,
       products: [],
       isDelivery: false,
+      productsInCart: new Map(),
       pastDeliveries: [],
       wallet: 0,
     };
@@ -333,6 +339,37 @@ class App extends Component {
     this.buyProduct = this.buyProduct.bind(this);
     this.deleteProduct = this.deleteProduct.bind(this);
     this.updateProduct = this.updateProduct.bind(this);
+    this.addProductToCart = this.addProductToCart.bind(this);
+    this.deliveredProduct = this.deliveredProduct.bind(this);
+  }
+
+  async deliveredProduct() {
+    this.setState({ loading: true, loadingMsg: "Saving Delivery Details" });
+    this.state.bfe.methods
+      .DelvPersonAvail()
+      .send({
+        from: this.state.account,
+      })
+      .once("receipt", async (receipt) => {
+        console.log("receipt", receipt);
+        await this.notifyDeliveryPerson(this.state.account, true);
+      });
+  }
+
+  async addProductToCart(key_, quantity) {
+    let product = this.state.products[key_];
+    let productId = product.productId;
+    let productsInCart = { ...this.state.productsInCart };
+    if (productId in productsInCart) {
+      productsInCart[productId] = {
+        ...product,
+        quantityNeeded: quantity,
+      };
+    } else {
+      productsInCart[productId] = { ...product, quantityNeeded: quantity };
+    }
+
+    this.setState({ productsInCart });
   }
 
   async updateProduct(
@@ -342,7 +379,6 @@ class App extends Component {
     productQuantity,
     productImage
   ) {
-    debugger;
     this.setState({ loading: true });
     var filePath = "";
     if (productImage && productImage.toString().length > 0) {
@@ -370,90 +406,79 @@ class App extends Component {
     this.setState({ loading: false });
   }
 
-  async buyProduct(
-    blockId,
-    productId,
-    quantity,
-    sellerId,
-    count,
-    price,
-    isDelivery
-  ) {
-    var totalPrice = count.toNumber() * parseInt(price);
-    const margin = 0.05;
+  async buyProduct(isDelv) {
+    const sellers = [];
+    //Amount to send each sellers
+    const amount = [];
+    var totalPrice = 0;
+    const productsInCart = Array.from(
+      new Map(Object.entries(this.state.productsInCart)).values()
+    );
+    productsInCart.forEach((product) => {
+      sellers.push(product.sellerId);
+      amount.push(
+        window.web3.utils.toWei(
+          (product.price * product.quantityNeeded).toString(),
+          "ether"
+        )
+      );
+      totalPrice += product.price * product.quantityNeeded;
+    });
+    const margin = 0.5;
     totalPrice += margin;
     var deliveryPerson = this.state.account;
     var deliveryCost = 0;
-    if (isDelivery) {
-      deliveryCost = Math.max(1, totalPrice * 0.05);
+    if (isDelv) {
+      deliveryCost = 1;
+      // Math.max(1, totalPrice * 0.05);
       totalPrice += deliveryCost;
+      amount.push(window.web3.utils.toWei(deliveryCost.toString(), "ether"));
       deliveryPerson = await this.getAvailableDeliveryPerson();
+      sellers.push(deliveryPerson);
       if (!deliveryPerson) {
         alert("No delivery person available");
         return;
       }
       console.log("deliveryPerson", deliveryPerson);
     }
-
     this.setState({ loading: true });
 
     this.state.bfe.methods
-      .Buy(
-        blockId,
-        count,
-        isDelivery,
-        window.web3.utils.toWei(deliveryCost.toString(), "ether"),
-        deliveryPerson
-      )
+      .Buy(sellers, amount)
       .send({
         from: this.state.account,
         value: window.web3.utils.toWei(totalPrice.toString(), "ether"),
       })
       .once("receipt", async (receipt) => {
-        const buyMetaData = receipt["events"]["FoodItemBought"]["returnValues"];
-        console.log("buyMetaData", buyMetaData);
+        // const buyMetaData = receipt["events"]["FoodItemBought"]["returnValues"];
 
-        if (isDelivery) {
-          await this.notifyDeliveryPerson(deliveryPerson, productId, sellerId);
+        if (isDelv) {
+          // await this.notifyDeliveryPerson(deliveryPerson, false);
         }
-        await this.updateProduct(
-          productId,
-          sellerId,
-          quantity.toNumber(),
-          count.toNumber()
-        );
+        this.updateMultiDoc(productsInCart);
 
-        this.setState({ loading: false });
+        // await addTransactionToUser()
+        this.state.products = [];
+        await this.loadAllProducts();
+
+        this.setState({ productsInCart: [], loading: false });
       });
   }
 
   async createProduct(name, price, quantity, file) {
     this.setState({ loading: true });
 
-    this.state.bfe.methods
-      .FoodItemReg(name, price, quantity)
-      .send({ from: this.state.account })
-      .once("receipt", async (receipt) => {
-        debugger;
-        var productMetaData =
-          receipt["events"]["FoodItemAdded"]["returnValues"];
-        const gasUsed = receipt["gasUsed"];
-        console.log("productMetaData", productMetaData);
-        const price = window.web3.utils.fromWei(productMetaData.price, "ether");
-        const filePath = await this.uploadFile(file);
-        await this.setProductDetails(
-          name,
-          price,
-          quantity.toNumber(),
-          productMetaData.fid,
-          receipt.transactionHash,
-          filePath,
-          gasUsed,
-          this.state.name
-        );
-
-        this.setState({ loading: false });
-      });
+    const filePath = await this.uploadFile(file);
+    await this.setProductDetails(
+      name,
+      price,
+      quantity,
+      filePath,
+      this.state.name
+    );
+    this.state.products = [];
+    await this.loadProducts();
+    this.setState({ loading: false });
   }
 
   unregisterUser() {
@@ -510,6 +535,8 @@ class App extends Component {
           wallet={this.state.wallet}
           isreg={this.state.registered}
           logout={this.unregisterUser}
+          productsInCart={this.state.productsInCart}
+          buy={this.buyProduct}
         />
         <div className="container-fluid mt-5">
           <div className="row">
@@ -536,10 +563,11 @@ class App extends Component {
                 </Seller>
               ) : this.state.isDelivery ? (
                 <Delivery
-                  delivery={this.state.delivery}
                   name={this.state.name}
+                  deliveryPerson={this.state.deliveryPerson}
                   accountDetails={this.state.account}
                   pastDeliveries={this.state.pastDeliveries}
+                  deliveredProduct={this.deliveredProduct}
                 ></Delivery>
               ) : (
                 <Buyer
@@ -547,6 +575,7 @@ class App extends Component {
                   products={this.state.products}
                   name={this.state.name}
                   buyProduct={this.buyProduct}
+                  addProductToCart={this.addProductToCart}
                 ></Buyer>
               )}
             </main>

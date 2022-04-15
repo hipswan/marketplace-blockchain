@@ -11,24 +11,13 @@ contract BFEv4 {
         bool available;
     }
 
-    struct FoodItem{
-        uint fid;
-        address payable seller;
-        string fname;
-        uint price;
-        uint qty;
-    }
-
     uint public balance;
     uint uid;
     uint mid;
     mapping(address => User) public users;
-    mapping(uint => FoodItem) public menu;
 
     event UserRegistered(uint bid, string bname, Type userType);
     event UserUnregistered(uint bid, string bname, Type userType);
-    event FoodItemAdded(uint fid, address payable seller, string fname, uint price, uint qty);
-    event FoodItemBought(uint fid, address buyer, address payable seller, string fname, uint count);
 
     modifier onlySeller(){
         require(users[msg.sender].reg && users[msg.sender].userType == Type.Seller, "Not a seller");
@@ -48,10 +37,6 @@ contract BFEv4 {
     modifier validUserType(Type userType){
         require(userType <= Type.DeliveryPerson);
         _;
-    }
-
-    constructor() public{
-        balance = address(this).balance;
     }
 
     function UserReg(string memory name, Type userType) public validUserType(userType){
@@ -75,45 +60,11 @@ contract BFEv4 {
         users[msg.sender].available = true;
     }
 
-    function FoodItemReg(string memory name, uint price, uint qty) public onlySeller{
-        require(bytes(name).length > 0, "Name cannot be empty");
-        require(price > 0, "Item price cannot be 0");
-        require(qty > 0, "Item count cannot be 0");
-        mid ++;
-        menu[mid] = FoodItem(mid, payable(msg.sender), name, price, qty);
-        emit FoodItemAdded(mid, payable(msg.sender), name, price, qty);
-    }
 
-    function FoodItemUpdate(uint id, uint price, uint qty) public onlySeller{
-        require(id <= mid, "Item does not exists");
-        FoodItem memory item = menu[id];
-        require(item.seller == msg.sender, "Not the authorized seller");
-        item.qty = qty;
-        item.price = price;
-        menu[id] = item;
-        emit FoodItemAdded(id, payable(msg.sender), item.fname, price, qty);
-    }
-
-    function Buy(uint id, uint count, bool delv,uint delvCost, address payable delvperson) public payable onlyBuyer{
-        require(id <= mid, "Item does not exists");
-        require(count > 0, "Item count cannot be 0");
-        require(!delv || (users[delvperson].reg && users[delvperson].available), "Delivery person is not available or registered");
-        FoodItem memory item = menu[id];
-        require(count <= item.qty, "Requirement not met");
-        require(item.qty > 0, "Item Unavailable");
-        uint itemCost = item.price * count * 1 wei;
-        // uint delvCost = 1 ether * 1 wei;
-        // require(msg.value == itemCost, "Please send proper money");
-        address payable seller = item.seller;
-        seller.transfer(itemCost);
-        // payable(this).transfer(1 ether);
-        if (delv){
-            delvperson.transfer(delvCost);
-            users[delvperson].available = false;
-        }
+    function Buy(address payable[] memory sellers, uint[] memory money) public payable onlyBuyer{
+        require(sellers.length == money.length, "Sellers and money doesn't match length");
+        for (uint i = 0; i < sellers.length; i ++)
+            sellers[i].transfer(money[i]);
         balance = address(this).balance;
-        item.qty -= count;
-        menu[id] = item;
-        emit FoodItemBought(id, msg.sender, seller, item.fname, count);
     }
 }

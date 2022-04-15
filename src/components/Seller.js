@@ -46,11 +46,9 @@ class Seller extends Component {
           onSubmit={(event) => {
             event.preventDefault();
             const name = this.productName.value;
-            const price = window.web3.utils.toWei(
-              this.productPrice.value.toString(),
-              "Ether"
-            );
-            const quantity = window.web3.utils.toBN(this.productQuantity.value);
+            const price = this.productPrice.value;
+
+            const quantity = this.productQuantity.value;
             const selectedFile = this.inputFile.files[0];
 
             // debugger;
@@ -126,7 +124,7 @@ class Seller extends Component {
             {this.props.products.map((product, key) => {
               return (
                 <tr key={key}>
-                  <th scope="row">{product.id.toString()}</th>
+                  <th scope="row">{key}</th>
                   <td>{product.name}</td>
                   <td>{product.price} Eth</td>
                   <td>{product.quantity}</td>
