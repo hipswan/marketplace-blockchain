@@ -1,0 +1,11 @@
+{
+  "name": "eth-marketplace",
+  "version": "0.1.0",
+  "description": "BFE: An Ethereum Marketplace",
+  "private": true,
+  "author": "atularvi@buffalo.edu",
+  "dependencies": {
+    "truffle-hdwallet-provider": "^1.0.17",
+    "truffle": "^5.5.6"
+  }
+}
