@@ -7,6 +7,11 @@ import RegisterForm from "./RegisterForm";
 import { initializeApp } from "firebase/app";
 import Backdrop from "@mui/material/Backdrop";
 import CircularProgress from "@mui/material/CircularProgress";
+import RegisterAppBar from "./AppBar/RegisterAppBar";
+import BuyerAppBar from "./AppBar/BuyerAppBar";
+import SellerAppBar from "./AppBar/SellerAppBar";
+import DeliveryAppBar from "./AppBar/DeliveryAppBar";
+
 import {
   getFirestore,
   collection,
@@ -294,6 +299,51 @@ class App extends Component {
     });
   }
 
+  async loadCurrentOrder() {
+    const buyerRef = doc(this.db, "buyers", this.state.account);
+    const buyerSnapshot = await getDoc(buyerRef);
+    if (buyerSnapshot.exists && buyerSnapshot.data().status === "pending") {
+      this.setState({
+        currentOrder: buyerSnapshot.data(),
+      });
+    } else {
+      console.log("No Current Order");
+    }
+  }
+
+  async loadBuyerPastOrders() {
+    const buyerRef = doc(this.db, "buyers", this.state.account);
+    const pastOrdersRef = collection(buyerRef, "pastOrders");
+    const pastOrdersSnapshot = await getDocs(pastOrdersRef);
+    pastOrdersSnapshot.forEach((doc) => {
+      // doc.data() is never undefined for query doc snapshots
+      // console.log(doc.id, " => ", doc.data());
+      this.setState({
+        pastOrders: [
+          ...this.state.pastOrders,
+          { ...doc.data(), orderId: doc.id },
+        ],
+      });
+    });
+  }
+
+  async orderReceived() {
+    const buyerRef = doc(this.db, "buyers", this.state.account);
+    await updateDoc(buyerRef, {
+      status: "completed",
+    });
+    const orderDetails = await getDoc(buyerRef);
+
+    const pastOrdersRef = collection(buyerRef, "pastOrders");
+    await addDoc(pastOrdersRef, {
+      ...orderDetails.data(),
+      timeReceived: Timestamp.now(),
+    });
+    this.setState({
+      currentOrder: {},
+    });
+  }
+
   async loadBlockchainData() {
     const web3 = window.web3;
     // Load account
@@ -333,6 +383,8 @@ class App extends Component {
         currentUserDetails.reg
       ) {
         await this.loadAllProducts();
+        await this.loadBuyerPastOrders();
+        await this.loadCurrentOrder();
       } else if (
         currentUserDetails.userType === "2" &&
         currentUserDetails.reg
@@ -361,6 +413,27 @@ class App extends Component {
       openAlert: false,
     });
   }
+  async saveOrderToFirestore(
+    sellers,
+    amounts,
+    productIds,
+    totalPrice,
+    deliveryPersonAssigned,
+    sellersAmount
+  ) {
+    const buyerRef = doc(this.db, "buyers", this.state.account);
+    const docRef = await setDoc(buyerRef, {
+      sellers: sellers,
+      amounts: amounts,
+      products: productIds,
+      totalPrice: totalPrice,
+      deliveryPersonAssigned: deliveryPersonAssigned,
+      sellersAmount: sellersAmount,
+      status: "pending",
+      timeOrdered: Timestamp.now(),
+    });
+    return "1";
+  }
 
   constructor(props) {
     super(props);
@@ -382,12 +455,13 @@ class App extends Component {
       isDelivery: false,
       productsInCart: new Map(),
       pastDeliveries: [],
+      pastOrders: [],
       wallet: 0,
     };
     this.registerUser = this.registerUser.bind(this);
     this.unregisterUser = this.unregisterUser.bind(this);
     this.createProduct = this.createProduct.bind(this);
-    this.buyProduct = this.buyProduct.bind(this);
+    this.settlePayment = this.settlePayment.bind(this);
     this.deleteProduct = this.deleteProduct.bind(this);
     this.updateProduct = this.updateProduct.bind(this);
     this.addProductToCart = this.addProductToCart.bind(this);
@@ -395,6 +469,7 @@ class App extends Component {
     this.handleAlertClose = this.handleAlertClose.bind(this);
     this.handleAlertOpen = this.handleAlertOpen.bind(this);
     this.toggleTakeout = this.toggleTakeout.bind(this);
+    this.orderProduct = this.orderProduct.bind(this);
   }
 
   toggleTakeout() {
@@ -476,25 +551,33 @@ class App extends Component {
     this.setState({ loading: false });
   }
 
-  async buyProduct(isDelv) {
+  async orderProduct(isDelv) {
+  
+    const sellersAmount = [];
     const sellers = [];
-    //Amount to send each sellers
-    const amount = [];
+    const amounts = [];
+    const productId = [];
     var totalPrice = 0;
+
     const productsInCart = Array.from(
       new Map(Object.entries(this.state.productsInCart)).values()
     );
-    const productId = [];
+    const web3 = window.web3;
     productsInCart.forEach((product) => {
-      sellers.push(product.sellerId);
-      amount.push(
-        window.web3.utils.toWei(
-          (product.price * product.quantityNeeded).toString(),
-          "ether"
-        )
+      let seller = product.sellerId;
+      let amount = web3.utils.toWei(
+        (product.price * product.quantityNeeded).toString(),
+        "ether"
       );
-      totalPrice += product.price * product.quantityNeeded;
+      let encodeAmount = web3.eth.abi.encodeParameter("uint256", amount);
+      let stripEncodeAmount = web3.utils.stripHexPrefix(encodeAmount);
+      let sellerAmount = seller + stripEncodeAmount.substring(40);
+      sellers.push(seller);
+      amounts.push(product.price * product.quantityNeeded);
+      sellersAmount.push(sellerAmount);
       productId.push(product.productId);
+
+      totalPrice += product.price * product.quantityNeeded;
     });
 
     const margin = 0.05;
@@ -505,15 +588,19 @@ class App extends Component {
       deliveryCost = 1;
       // Math.max(1, totalPrice * 0.05);
       totalPrice += deliveryCost;
-      amount.push(window.web3.utils.toWei(deliveryCost.toString(), "ether"));
+
       try {
         deliveryPerson = await this.getAvailableDeliveryPerson();
       } catch (error) {
         this.handleAlertOpen("error", "Delivery Person not available");
         return;
       }
+      let amount = web3.utils.toWei(deliveryCost.toString(), "ether");
+      let encodeAmount = web3.eth.abi.encodeParameter("uint256", amount);
+      let stripEncodeAmount = web3.utils.stripHexPrefix(encodeAmount);
+      let sellerAmount = deliveryPerson + stripEncodeAmount.substring(40);
 
-      sellers.push(deliveryPerson);
+      sellersAmount.push(sellerAmount);
       if (!deliveryPerson) {
         alert("No delivery person available");
         return;
@@ -521,9 +608,16 @@ class App extends Component {
       console.log("deliveryPerson", deliveryPerson);
     }
     this.setState({ loading: true });
-
+    let orderId = await this.saveOrderToFirestore(
+      sellers,
+      amounts,
+      productId,
+      totalPrice,
+      deliveryPerson,
+      sellersAmount
+    );
     this.state.bfe.methods
-      .Buy(sellers, amount)
+      .Order(web3.utils.toBN(orderId))
       .send({
         from: this.state.account,
         value: window.web3.utils.toWei(totalPrice.toString(), "ether"),
@@ -534,9 +628,37 @@ class App extends Component {
         if (isDelv) {
           await this.notifyDeliveryPerson(deliveryPerson, productId, false);
         }
-        this.updateMultiDoc(productsInCart);
+        await this.updateMultiDoc(productsInCart);
 
         // await addTransactionToUser()
+        this.state.products = [];
+        await this.loadAllProducts();
+        await this.loadCurrentOrder();
+        this.setState({ productsInCart: [], loading: false });
+      });
+  }
+
+  async settlePayment(isDelv) {
+    this.setState({ loading: true });
+
+    this.state.bfe.methods
+      .SettlePayment(this.state.currentOrder.sellersAmount)
+      .send({
+        from: this.state.account,
+        // value: window.web3.utils.toWei(
+        //   this.state.currentOrder.totalPrice.toString(),
+        //   "ether"
+        // ),
+      })
+      .once("receipt", async (receipt) => {
+        // const buyMetaData = receipt["events"]["FoodItemBought"]["returnValues"];
+
+        // if (isDelv) {
+        //   await this.notifyDeliveryPerson(deliveryPerson, productId, false);
+        // }
+
+        // await addTransactionToUser()
+        await this.orderReceived();
         this.state.products = [];
         await this.loadAllProducts();
 
@@ -622,7 +744,44 @@ class App extends Component {
   render() {
     return (
       <div>
-        <Navbar
+        {!this.state.registered ? (
+          <RegisterAppBar></RegisterAppBar>
+        ) : this.state.isSeller ? (
+          <SellerAppBar
+            account={this.state.account}
+            wallet={this.state.wallet}
+            isreg={this.state.registered}
+            logout={this.unregisterUser}
+            productsInCart={this.state.productsInCart}
+            buy={this.buyProduct}
+            isTakeout={this.state.isTakeout}
+          ></SellerAppBar>
+        ) : this.state.isDelivery ? (
+          <DeliveryAppBar
+            account={this.state.account}
+            wallet={this.state.wallet}
+            isreg={this.state.registered}
+            logout={this.unregisterUser}
+            productsInCart={this.state.productsInCart}
+            buy={this.buyProduct}
+            isTakeout={this.state.isTakeout}
+          ></DeliveryAppBar>
+        ) : (
+          <BuyerAppBar
+            account={this.state.account}
+            wallet={this.state.wallet}
+            isreg={this.state.registered}
+            logout={this.unregisterUser}
+            productsInCart={this.state.productsInCart}
+            orderProduct={this.orderProduct}
+            settlePayment={this.settlePayment}
+            currentOrder={this.state.currentOrder}
+            pastOrders={this.state.pastOrders}
+            isTakeout={this.state.isTakeout}
+          ></BuyerAppBar>
+        )}
+
+        {/* <Navbar
           account={this.state.account}
           wallet={this.state.wallet}
           isreg={this.state.registered}
@@ -630,7 +789,7 @@ class App extends Component {
           productsInCart={this.state.productsInCart}
           buy={this.buyProduct}
           isTakeout={this.state.isTakeout}
-        />
+        /> */}
         <div className="container-fluid mt-5">
           <div className="row">
             <main role="main" className="col-lg-12 d-flex">
@@ -695,7 +854,6 @@ class App extends Component {
       </div>
     );
   }
-  x;
 }
 
 export default App;

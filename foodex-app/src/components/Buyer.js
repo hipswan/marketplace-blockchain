@@ -33,11 +33,13 @@ class Buyer extends Component {
     this.handleQuantityPlus = this.handleQuantityPlus.bind(this);
   }
 
-  componentDidUpdate(prevProps) {
-    if (this.props.products !== prevProps.products) {
-      this.setState({
-        productQuantities: new Array(this.props.products.length).fill(0),
-      });
+  UNSAFE_componentWillMount(prevProps) {
+   
+    if (this.props !== prevProps) {
+      if (this.props.products)
+        this.setState({
+          productQuantities: new Array(this.props.products.length).fill(0),
+        });
     }
   }
   handleQuantityMinus(key) {
