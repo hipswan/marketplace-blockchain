@@ -1,4 +1,4 @@
-var HDWalletProvider = require("truffle-hdwallet-provider");
+const HDWalletProvider = require("@truffle/hdwallet-provider");
 const MNEMONIC = "accuse genre bar crouch orchard wild tent youth breeze salon near weird";
 //ropsten.infura.io/v3/d51b8ae11bb34cdf9ecc3fc4b65cea07
 module.exports = {

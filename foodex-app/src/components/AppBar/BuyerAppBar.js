@@ -18,11 +18,13 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
 import { styled } from "@mui/material/styles";
-import { CardActionArea, CardActions } from "@mui/material";
+import { CardActionArea, CardActions, Stack } from "@mui/material";
 import OrderInProgress from "../assets/order_in_progress.gif";
-
+import NoOrderPending from "../assets/no_order_pending.png";
+import { DataGrid } from "@mui/x-data-grid";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 const pages = ["Home", "Cart", "Orders"];
-const settings = ["Profile", "Account", "Dashboard", "Logout"];
+const settings = ["Unregister"];
 
 const StyledBadge = styled(Badge)(({ theme }) => ({
   "& .MuiBadge-badge": {
@@ -62,11 +64,11 @@ const BuyerAppBar = (props) => {
   };
 
   const handleOrderOpen = () => {
-    setOrderOpen(true);
+    props.handleOrderModalStatus(true);
   };
 
   const handleOrderClose = () => {
-    setOrderOpen(false);
+    props.handleOrderModalStatus(false);
   };
 
   const handleOpenNavMenu = (event) => {
@@ -76,7 +78,14 @@ const BuyerAppBar = (props) => {
     setAnchorElUser(event.currentTarget);
   };
 
-  const handleCloseNavMenu = () => {
+  const handleCloseNavMenu = (event) => {
+    debugger;
+    if (event.target.textContent === "Cart") {
+      handleCartOpen();
+    } else if (event.target.textContent === "Orders") {
+      handleOrderOpen();
+    }
+
     setAnchorElNav(null);
   };
 
@@ -92,19 +101,82 @@ const BuyerAppBar = (props) => {
 
   const currentOrder = props.currentOrder;
   const pastOrders = props.pastOrders;
-  console.log(currentOrder);
-  console.log(pastOrders);
+  console.log("In Buyer app bar -> current order", currentOrder);
+  console.log("In Buyer app bar -> past order", pastOrders);
+
+  const columns = [
+    { field: "id", headerName: "Order ID", width: 200 },
+    {
+      field: "productCount",
+      headerName: "# of Products",
+      width: 20,
+      editable: true,
+    },
+    {
+      field: "timeOrdered",
+      headerName: "Order Placed at",
+      type: "date",
+      width: 300,
+      editable: true,
+    },
+    {
+      field: "timeDelivered",
+      headerName: "Order Delivered at",
+      type: "date",
+      width: 300,
+    },
+    {
+      field: "totalPrice",
+      headerName: "Total Price",
+      type: "number",
+      width: 110,
+    },
+  ];
+  const rows = pastOrders.map((order) => {
+    return {
+      id: order.orderId,
+      productCount: order.products.length,
+      timeOrdered: Date(order.timeOrdered.seconds * 1000),
+      timeDelivered: Date(order.timeReceived.seconds * 1000),
+      totalPrice: order.totalPrice,
+    };
+  });
+  if (!props.isOrdered  && props.currentOrder && "products" in props.currentOrder){
+    handleOrderOpen();
+  }
+
   return (
-    <AppBar position="static">
+    <AppBar position="static" sx={{ bgcolor: "background.paper" }}>
       <Container maxWidth="xl">
         <Toolbar disableGutters>
           <Typography
             variant="h6"
             noWrap
             component="div"
-            sx={{ mr: 2, display: { xs: "none", md: "flex" } }}
+            sx={{
+              // mr: 2,
+              color: "black",
+              fontWeight: "bold",
+              fontSize: "1.5rem",
+              display: { xs: "none", md: "flex" },
+            }}
           >
-            Food Ex
+            Food
+          </Typography>
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{
+              ml: 1,
+              color: "green",
+              fontSize: "1.5rem",
+
+              fontWeight: "bold",
+              display: { xs: "none", md: "flex" },
+            }}
+          >
+            Ex
           </Typography>
 
           <Box sx={{ flexGrow: 1, display: { xs: "flex", md: "none" } }}>
@@ -114,7 +186,7 @@ const BuyerAppBar = (props) => {
               aria-controls="menu-appbar"
               aria-haspopup="true"
               onClick={handleOpenNavMenu}
-              color="inherit"
+              color="primary"
             >
               <MenuIcon />
             </IconButton>
@@ -147,20 +219,36 @@ const BuyerAppBar = (props) => {
             variant="h6"
             noWrap
             component="div"
-            sx={{ flexGrow: 1, display: { xs: "flex", md: "none" } }}
+            sx={{
+              flexGrow: 1,
+              color: "black",
+              display: { xs: "flex", md: "none" },
+            }}
           >
             Food Ex
           </Typography>
-          <Box sx={{ flexGrow: 1, display: { xs: "none", md: "flex" } }}>
+          <Box
+            sx={{
+              flexGrow: 1,
+
+              display: { xs: "none", md: "flex" },
+            }}
+          >
             <Button
               onClick={handleCloseNavMenu}
-              sx={{ my: 2, color: "white", display: "block" }}
+              sx={{
+                my: 2,
+                mx: 1,
+                color: "black",
+                fontWeight: "bold",
+                display: "block",
+              }}
             >
               Home
             </Button>
             <Button
               onClick={handleCartOpen}
-              sx={{ my: 2, color: "white" }}
+              sx={{ my: 2, mx: 1, color: "black" }}
               endIcon={
                 <Badge
                   badgeContent={productsInCart.reduce(
@@ -182,7 +270,7 @@ const BuyerAppBar = (props) => {
             </Button>
             <Button
               onClick={handleOrderOpen}
-              sx={{ my: 2, color: "white", display: "block" }}
+              sx={{ my: 2, mx: 1, color: "black", display: "block" }}
             >
               Orders
             </Button>
@@ -191,7 +279,7 @@ const BuyerAppBar = (props) => {
           <Box sx={{ flexGrow: 0 }}>
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                <Avatar alt="Remy Sharp" src="/static/images/avatar/2.jpg" />
+                <AccountCircleIcon />
               </IconButton>
             </Tooltip>
             <Menu
@@ -211,7 +299,14 @@ const BuyerAppBar = (props) => {
               onClose={handleCloseUserMenu}
             >
               {settings.map((setting) => (
-                <MenuItem key={setting} onClick={handleCloseUserMenu}>
+                <MenuItem
+                  key={setting}
+                  onClick={(event) => {
+                    props.unregister();
+
+                    handleCloseUserMenu(event);
+                  }}
+                >
                   <Typography textAlign="center">{setting}</Typography>
                 </MenuItem>
               ))}
@@ -280,6 +375,16 @@ const BuyerAppBar = (props) => {
                         Total: {product.price * product.quantityNeeded}
                       </Typography>
                     </CardContent>
+                    <CardActions>
+                      <Button
+                        onClick={(event) => {
+                          
+                          props.deleteProductFromCart(product.productId);
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </CardActions>
                   </Box>
                 </Card>
               );
@@ -353,7 +458,7 @@ const BuyerAppBar = (props) => {
         </Box>
       </Modal>
       <Modal
-        open={orderOpen}
+        open={props.isOrdered}
         // onClose={handleOrderClose}
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
@@ -361,26 +466,36 @@ const BuyerAppBar = (props) => {
         <Box
           sx={{
             ...style,
-            display: "flex",
-            flexDirection: "row",
-            justifyContent: "space-between",
+
             // justifyContent: "space-between",
           }}
         >
-          <Card sx={{ maxWidth: 345 }}>
-            <CardActionArea>
-              <CardMedia
-                component="img"
-                height="140"
-                image={OrderInProgress}
-                alt="order in progress"
-              />
-              <CardContent>
-                <Typography gutterBottom variant="h5" component="div">
-                  Order In progress
-                </Typography>
-                <Box sx={{ display: "flex", flexDirection: "column" }}>
-                  <CardContent sx={{ flex: "1 0 auto" }}>
+          <Stack>
+            <Card
+              sx={{
+                width: 300,
+                height: 330,
+                mb: 3,
+              }}
+            >
+              <CardActionArea>
+                <CardMedia
+                  component="img"
+                  height="140"
+                  image={
+                    props.currentOrder && "products" in props.currentOrder
+                      ? OrderInProgress
+                      : NoOrderPending
+                  }
+                  alt="order in progress"
+                />
+                <CardContent>
+                  <Stack>
+                    <Typography gutterBottom variant="h5" component="div">
+                      {props.currentOrder && "products" in props.currentOrder
+                        ? "Order In progress"
+                        : "No Order Pending"}
+                    </Typography>
                     <Typography
                       variant="subtitle1"
                       color="text.secondary"
@@ -388,7 +503,7 @@ const BuyerAppBar = (props) => {
                     >
                       Quantity:{" "}
                       {props.currentOrder &&
-                       "products" in props.currentOrder &&
+                        "products" in props.currentOrder &&
                         props.currentOrder.products.length}
                     </Typography>
 
@@ -402,26 +517,52 @@ const BuyerAppBar = (props) => {
                         "totalPrice" in props.currentOrder &&
                         props.currentOrder.totalPrice}
                     </Typography>
-                  </CardContent>
-                </Box>
-              </CardContent>
-            </CardActionArea>
-            <CardActions>
-              <Button
-                size="small"
-                color="primary"
-                onClick={(event) => {
-                  event.preventDefault();
+                  </Stack>
+                </CardContent>
+              </CardActionArea>
+              <CardActions>
+                {props.currentOrder && "products" in props.currentOrder ? (
+                  <Button
+                    size="small"
+                    color="primary"
+                    onClick={(event) => {
+                      event.preventDefault();
 
-                  props.settlePayment();
+                      props.settlePayment(!props.isTakeout);
+                      // handleOrderClose();
+                    }}
+                  >
+                    Order Received
+                  </Button>
+                ) : (
+                  <Button
+                    size="small"
+                    color="primary"
+                    onClick={(event) => {
+                      event.preventDefault();
 
-                  handleOrderClose();
-                }}
-              >
-                Order Received
-              </Button>
-            </CardActions>
-          </Card>
+                      handleOrderClose();
+                    }}
+                  >
+                    Back
+                  </Button>
+                )}
+              </CardActions>
+            </Card>
+            <Box sx={{ display: { xs: "none", md: "flex", flexGrow: 0 } }}>
+              <Stack>
+                <h1> Past Orders</h1>
+                <div style={{ height: 400, width: "100vw" }}>
+                  <DataGrid
+                    rows={rows}
+                    columns={columns}
+                    pageSize={5}
+                    rowsPerPageOptions={[5]}
+                  />
+                </div>
+              </Stack>
+            </Box>
+          </Stack>
         </Box>
       </Modal>
     </AppBar>

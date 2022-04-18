@@ -128,6 +128,7 @@ class App extends Component {
     productsPurchased.forEach((product) => {
       const sellerRef = doc(this.db, "sellers", product.sellerId);
       const productRef = doc(sellerRef, "products", product.productId);
+
       batch.update(productRef, {
         quantity: product.quantity - product.quantityNeeded,
       });
@@ -156,18 +157,17 @@ class App extends Component {
         timeAssigned: Timestamp.now(),
         listOfProduct: productIds,
       });
-    } else if (isDelivered) {
+    } else {
       await updateDoc(deliveryRef, {
         available: isDelivered,
       });
       const pastDeliveriesRef = collection(deliveryRef, "pastDeliveries");
       await addDoc(pastDeliveriesRef, {
-        buyerName: this.state.deliveryPerson.buyerName,
-        timeAssigned: this.state.deliveryPerson.timeAssigned,
+        buyerName: this.state.name,
+        timeAssigned: this.state.currentOrder.timeOrdered,
         timeDelivered: Timestamp.now(),
         listOfProduct: productIds,
       });
-      this.state.deliveryPerson.available = true;
     }
   }
 
@@ -228,7 +228,7 @@ class App extends Component {
     }
 
     this.state.products = [];
-    await this.loadAllProducts();
+    await this.loadProducts();
   }
 
   async loadPastDeliveries() {
@@ -284,6 +284,7 @@ class App extends Component {
     this.setState({
       deliveryPerson: deliverySnapshot.data(),
     });
+
     const pastDeliveriesRef = collection(deliveryRef, "pastDeliveries");
     const pastDeliveriesSnapshot = await getDocs(pastDeliveriesRef);
     pastDeliveriesSnapshot.forEach((doc) => {
@@ -302,7 +303,12 @@ class App extends Component {
   async loadCurrentOrder() {
     const buyerRef = doc(this.db, "buyers", this.state.account);
     const buyerSnapshot = await getDoc(buyerRef);
-    if (buyerSnapshot.exists && buyerSnapshot.data().status === "pending") {
+    if (
+      buyerSnapshot.exists &&
+      buyerSnapshot.data() &&
+      "status" in buyerSnapshot.data() &&
+      buyerSnapshot.data().status === "pending"
+    ) {
       this.setState({
         currentOrder: buyerSnapshot.data(),
       });
@@ -457,6 +463,7 @@ class App extends Component {
       pastDeliveries: [],
       pastOrders: [],
       wallet: 0,
+      isOrdered: false,
     };
     this.registerUser = this.registerUser.bind(this);
     this.unregisterUser = this.unregisterUser.bind(this);
@@ -465,11 +472,27 @@ class App extends Component {
     this.deleteProduct = this.deleteProduct.bind(this);
     this.updateProduct = this.updateProduct.bind(this);
     this.addProductToCart = this.addProductToCart.bind(this);
+    this.deleteProductFromCart = this.deleteProductFromCart.bind(this);
     this.deliveredProduct = this.deliveredProduct.bind(this);
     this.handleAlertClose = this.handleAlertClose.bind(this);
     this.handleAlertOpen = this.handleAlertOpen.bind(this);
     this.toggleTakeout = this.toggleTakeout.bind(this);
     this.orderProduct = this.orderProduct.bind(this);
+    this.handleOrderModalStatus = this.handleOrderModalStatus.bind(this);
+  }
+
+  deleteProductFromCart(productId) {
+    const productsInCart = { ...this.state.productsInCart };
+    delete productsInCart[productId];
+    this.setState({
+      productsInCart,
+    });
+  }
+
+  handleOrderModalStatus(status) {
+    this.setState({
+      isOrdered: status,
+    });
   }
 
   toggleTakeout() {
@@ -537,6 +560,7 @@ class App extends Component {
       filePath,
       this.state.name
     );
+    this.handleAlertOpen("success", "Product Updated Successfully");
 
     this.setState({ loading: false });
   }
@@ -548,11 +572,17 @@ class App extends Component {
     await deleteDoc(productRef);
     this.state.products = [];
     this.loadProducts();
+    this.handleAlertOpen("success", "Product Deleted Successfully");
+
     this.setState({ loading: false });
   }
 
   async orderProduct(isDelv) {
-  
+    
+    if ("currentOrder" in this.state && "status" in this.state.currentOrder) {
+      this.handleAlertOpen("error", "You have an order in progress");
+      return;
+    }
     const sellersAmount = [];
     const sellers = [];
     const amounts = [];
@@ -634,13 +664,20 @@ class App extends Component {
         this.state.products = [];
         await this.loadAllProducts();
         await this.loadCurrentOrder();
-        this.setState({ productsInCart: [], loading: false });
+        this.handleAlertOpen("success", "Order Placed Successfuly");
+
+        this.setState({ productsInCart: [], loading: false, isOrdered: true });
+      })
+      .catch((err) => {
+        console.log(err);
+        this.handleAlertOpen("error", err.message);
+        this.setState({ loading: false });
       });
   }
 
   async settlePayment(isDelv) {
     this.setState({ loading: true });
-
+    debugger;
     this.state.bfe.methods
       .SettlePayment(this.state.currentOrder.sellersAmount)
       .send({
@@ -658,11 +695,24 @@ class App extends Component {
         // }
 
         // await addTransactionToUser()
+        if (isDelv) {
+          await this.notifyDeliveryPerson(
+            this.state.currentOrder.deliveryPersonAssigned,
+            this.state.currentOrder.products,
+            true
+          );
+        }
         await this.orderReceived();
         this.state.products = [];
         await this.loadAllProducts();
+        this.handleAlertOpen("success", "Payment Settled Successfully");
 
-        this.setState({ productsInCart: [], loading: false });
+        this.setState({ productsInCart: [], loading: false, isOrdered: false });
+      })
+      .catch((err) => {
+        console.log(err);
+        this.handleAlertOpen("error", err.message);
+        this.setState({ loading: false });
       });
   }
 
@@ -679,6 +729,8 @@ class App extends Component {
     );
     this.state.products = [];
     await this.loadProducts();
+    this.handleAlertOpen("success", "Product Added Successfully");
+
     this.setState({ loading: false });
   }
 
@@ -691,6 +743,8 @@ class App extends Component {
         var userMetaData =
           receipt["events"]["UserUnregistered"]["returnValues"];
         await this.deleteUser();
+        this.handleAlertOpen("success", "User Unregistered Succcessfully");
+
         this.setState({ loading: false, registered: false });
       })
       .catch((err) => {
@@ -701,7 +755,7 @@ class App extends Component {
   }
 
   registerUser(name, userType) {
-    this.setState({ loading: true });
+    this.setState({ loading: true, loadingText: " Registering User..." });
 
     var userTypeValue = window.web3.utils.toBN(
       userType === "seller" ? "1" : userType === "delivery" ? "2" : "0"
@@ -726,8 +780,11 @@ class App extends Component {
         } else {
           await this.loadAllProducts();
         }
+        this.handleAlertOpen("success", "User Registered Succcessfully");
+
         this.setState({
           loading: false,
+          loadingText: "",
           name: name,
           registered: true,
           isSeller: userType === "seller" ? true : false,
@@ -751,7 +808,7 @@ class App extends Component {
             account={this.state.account}
             wallet={this.state.wallet}
             isreg={this.state.registered}
-            logout={this.unregisterUser}
+            unregister={this.unregisterUser}
             productsInCart={this.state.productsInCart}
             buy={this.buyProduct}
             isTakeout={this.state.isTakeout}
@@ -761,7 +818,7 @@ class App extends Component {
             account={this.state.account}
             wallet={this.state.wallet}
             isreg={this.state.registered}
-            logout={this.unregisterUser}
+            unregister={this.unregisterUser}
             productsInCart={this.state.productsInCart}
             buy={this.buyProduct}
             isTakeout={this.state.isTakeout}
@@ -771,13 +828,16 @@ class App extends Component {
             account={this.state.account}
             wallet={this.state.wallet}
             isreg={this.state.registered}
-            logout={this.unregisterUser}
+            unregister={this.unregisterUser}
             productsInCart={this.state.productsInCart}
             orderProduct={this.orderProduct}
             settlePayment={this.settlePayment}
             currentOrder={this.state.currentOrder}
             pastOrders={this.state.pastOrders}
             isTakeout={this.state.isTakeout}
+            isOrdered={this.state.isOrdered}
+            handleOrderModalStatus={this.handleOrderModalStatus}
+            deleteProductFromCart={this.deleteProductFromCart}
           ></BuyerAppBar>
         )}
 
@@ -790,46 +850,42 @@ class App extends Component {
           buy={this.buyProduct}
           isTakeout={this.state.isTakeout}
         /> */}
-        <div className="container-fluid mt-5">
-          <div className="row">
-            <main role="main" className="col-lg-12 d-flex">
-              {!this.state.registered ? (
-                <RegisterForm
-                  accountDetails={this.state.account}
-                  registerUser={this.registerUser}
-                />
-              ) : this.state.isSeller ? (
-                <Seller
-                  accountDetails={this.state.account}
-                  products={this.state.products}
-                  name={this.state.name}
-                  createProduct={this.createProduct}
-                  deleteProduct={this.deleteProduct}
-                  updateProduct={this.updateProduct}
-                >
-                  {" "}
-                </Seller>
-              ) : this.state.isDelivery ? (
-                <Delivery
-                  name={this.state.name}
-                  deliveryPerson={this.state.deliveryPerson}
-                  accountDetails={this.state.account}
-                  pastDeliveries={this.state.pastDeliveries}
-                  deliveredProduct={this.deliveredProduct}
-                ></Delivery>
-              ) : (
-                <Buyer
-                  accountDetails={this.state.account}
-                  products={this.state.products}
-                  name={this.state.name}
-                  buyProduct={this.buyProduct}
-                  addProductToCart={this.addProductToCart}
-                  isTakeout={this.state.isTakeout}
-                  toggleTakeout={this.toggleTakeout}
-                ></Buyer>
-              )}
-            </main>
-          </div>
+        <div>
+          {!this.state.registered ? (
+            <RegisterForm
+              accountDetails={this.state.account}
+              registerUser={this.registerUser}
+            />
+          ) : this.state.isSeller ? (
+            <Seller
+              accountDetails={this.state.account}
+              products={this.state.products}
+              name={this.state.name}
+              createProduct={this.createProduct}
+              deleteProduct={this.deleteProduct}
+              updateProduct={this.updateProduct}
+            >
+              {" "}
+            </Seller>
+          ) : this.state.isDelivery ? (
+            <Delivery
+              name={this.state.name}
+              deliveryPerson={this.state.deliveryPerson}
+              accountDetails={this.state.account}
+              pastDeliveries={this.state.pastDeliveries}
+              deliveredProduct={this.deliveredProduct}
+            ></Delivery>
+          ) : (
+            <Buyer
+              accountDetails={this.state.account}
+              products={this.state.products}
+              name={this.state.name}
+              buyProduct={this.buyProduct}
+              addProductToCart={this.addProductToCart}
+              isTakeout={this.state.isTakeout}
+              toggleTakeout={this.toggleTakeout}
+            ></Buyer>
+          )}
         </div>
         <Backdrop
           sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}

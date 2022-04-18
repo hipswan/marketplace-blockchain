@@ -32,6 +32,9 @@ class Seller extends Component {
     super(props);
     this.state = {
       open: false,
+      name: "",
+      price: 0,
+      quantity: 0,
     };
     this.handleClose = this.handleClose.bind(this);
     this.handleOpen = this.handleOpen.bind(this);
@@ -49,72 +52,105 @@ class Seller extends Component {
     return (
       <div id="content">
         <h1>Hello {this.props.name}</h1>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            const name = this.productName.value;
-            const price = this.productPrice.value;
 
-            const quantity = this.productQuantity.value;
-            const selectedFile = this.inputFile.files[0];
-
-            // debugger;
-            // console.log(selectedFile.webkitRelativePath);
-            // this.props.uploadFile(name,selectedFile)
-            this.props.createProduct(name, price, quantity, selectedFile);
+        <Box
+          sx={{
+            "& .MuiTextField-root": {
+              mr: 3,
+              mt: 3,
+              mb: 3,
+              width: "25ch",
+              bgcolor: "white",
+              borderRadius: "5px",
+            },
+            pl: 25,
+            pr: 25,
           }}
+          noValidate
+          component="form"
         >
-          <div className="form-group mr-sm-2">
-            <input
-              id="productName"
-              type="text"
-              ref={(input) => {
-                this.productName = input;
+          <Card sx={{ textAlign: "center", p: 4 }}>
+            <h5>Register product</h5>
+            <div>
+              <TextField
+                required
+                id="outlined-name"
+                label="Product Name"
+                placeholder="Enter Product Name"
+                margin="normal"
+                onChange={(event) => {
+                  this.setState({ name: event.target.value });
+                }}
+                value={this.state.name}
+              />
+              <TextField
+                required
+                id="outlined-number"
+                label="Quantity"
+                type="number"
+                placeholder="Enter quantity"
+                margin="normal"
+                defaultValue={this.productQuantity}
+                onChange={(event) => {
+                  this.setState({ quantity: event.target.value });
+                }}
+                value={this.state.quantity}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+            </div>
+            <div>
+              <TextField
+                required
+                id="outlined-number"
+                label="Price"
+                placeholder="Enter placeholders"
+                type="number"
+                margin="normal"
+                onChange={(event) => {
+                  this.setState({ price: event.target.value });
+                }}
+                value={this.state.price}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+              <TextField
+                id="outlined-required"
+                margin="normal"
+                placeholder="Choose relevant Image"
+                type="file"
+                inputRef={(input) => {
+                  this.inputFile = input;
+                }}
+              />
+            </div>
+            <Button
+              margin="normal"
+              variant="contained"
+              onClick={(event) => {
+                event.preventDefault();
+
+                const selectedFile = this.inputFile.files[0];
+
+                // debugger;
+                // console.log(selectedFile.webkitRelativePath);
+                // this.props.uploadFile(name,selectedFile)
+                this.props.createProduct(
+                  this.state.name,
+                  this.state.price,
+                  this.state.quantity,
+                  selectedFile
+                );
+
+                this.setState({ name: "", price: 0, quantity: 0 });
               }}
-              className="form-control"
-              placeholder="Product Name"
-              required
-            />
-          </div>
-          <div className="form-group mr-sm-2">
-            <input
-              id="productPrice"
-              type="text"
-              ref={(input) => {
-                this.productPrice = input;
-              }}
-              className="form-control"
-              placeholder="Product Price"
-              required
-            />
-          </div>
-          <div className="form-group mr-sm-2">
-            <input
-              id="productQuantity"
-              type="text"
-              ref={(input) => {
-                this.productQuantity = input;
-              }}
-              className="form-control"
-              placeholder="Product Quantity"
-              required
-            />
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Upload Image</label>
-            <input
-              className="form-control"
-              type="file"
-              id="formFile"
-              ref={(input) => {
-                this.inputFile = input;
-              }}
-            />
-          </div>
-          <button type="submit" className="btn btn-primary">
-            Add Product
-          </button>
-        </form>
+            >
+              Save
+            </Button>
+          </Card>
+        </Box>
         <p>&nbsp;</p>
         <h2>Product Details</h2>
         <div className="container">
@@ -334,6 +370,7 @@ class Seller extends Component {
                   quantity,
                   selectedFile
                 );
+                this.handleClose();
               }}
             >
               Save

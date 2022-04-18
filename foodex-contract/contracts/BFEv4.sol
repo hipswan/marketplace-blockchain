@@ -8,7 +8,6 @@ contract BFEv4 {
         string name;
         Type userType;
         bool reg;
-        // uint amount;
     }
 
     uint public balance;
@@ -19,20 +18,12 @@ contract BFEv4 {
     event UserUnregistered(uint bid, string bname, Type userType);
     event FoodBought(address buyer, uint hashOfOrder);
 
-    // modifier onlySeller(){
-    //     require(users[msg.sender].reg && users[msg.sender].userType == Type.Seller, "Not a seller");
-    //     _;
-    // }
 
     modifier onlyBuyer(){
         require(users[msg.sender].reg && users[msg.sender].userType == Type.Buyer, "Not a buyer");
         _;
     }
 
-    // modifier onlyDeliveryPerson{
-    //     require(users[msg.sender].reg && users[msg.sender].userType == Type.DeliveryPerson, "Not a delivery person");
-    //     _;
-    // }
 
     modifier validUserType(Type userType){
         require(userType <= Type.DeliveryPerson);
@@ -49,20 +40,11 @@ contract BFEv4 {
     function UserUnreg() public{
         User memory user = users[msg.sender];
         require(user.reg);
-        // (msg.sender).transfer(user.amount);
-        // user.amount = 0;
         user.reg = false;
         users[msg.sender] = user;
         emit UserUnregistered(user.id, user.name, user.userType);
     }
 
-
-    // function Buy(address[] memory sellers, uint[] memory money) public payable onlyBuyer{
-    //     require(sellers.length == money.length, "Sellers and money doesn't match length");
-    //     for (uint i = 0; i < sellers.length; i ++)
-    //         users[sellers[i]].amount += money[i];
-    //     balance = address(this).balance;
-    // }
 
     function Order(uint hashOfOrder) public payable onlyBuyer{
         balance = address(this).balance;
@@ -78,10 +60,5 @@ contract BFEv4 {
         balance = address(this).balance;
     }
 
-    // function withdraw() public payable{
-    //     require(users[msg.sender].amount <= 0, "Insufficient funds");
-    //     address payable user = msg.sender;
-    //     user.transfer(users[user].amount);
-    //     users[user].amount = 0;
-    // }
+  
 }

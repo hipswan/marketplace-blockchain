@@ -14,7 +14,9 @@ import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import IconButton from "@mui/material/IconButton";
 import Modal from "@mui/material/Modal";
+import BuyerBuying from "./assets/buyer.png";
 
+import { Stack } from "@mui/material";
 const Alert = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
 });
@@ -31,11 +33,12 @@ class Buyer extends Component {
     this.handleClose = this.handleClose.bind(this);
     this.handleQuantityMinus = this.handleQuantityMinus.bind(this);
     this.handleQuantityPlus = this.handleQuantityPlus.bind(this);
+    this.handleQuantityZero = this.handleQuantityZero.bind(this);
   }
 
   UNSAFE_componentWillMount(prevProps) {
-   
-    if (this.props !== prevProps) {
+    // console.log('props matching',prevProps,this.props,this.props !== prevProps);
+    if ( this.props !== prevProps) {
       if (this.props.products)
         this.setState({
           productQuantities: new Array(this.props.products.length).fill(0),
@@ -53,6 +56,12 @@ class Buyer extends Component {
     this.setState({ productQuantities: quantityArray });
   }
 
+  handleQuantityZero(key) {
+    let quantity = [...this.state.productQuantities];
+    quantity[key] = 0;
+    this.setState({ productQuantities: quantity });
+  }
+
   handleClose() {
     this.setState({ open: false });
   }
@@ -66,18 +75,21 @@ class Buyer extends Component {
 
   render() {
     return (
+      
       <div id="content">
         <h1>Hello {this.props.name}</h1>
 
         <p>&nbsp;</p>
         <h2>Product Details</h2>
-        <label>
-          <span> Delivery </span>
+
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography>Takeout</Typography>
           <Switch
             onChange={this.props.toggleTakeout}
             checked={!this.props.isTakeout}
           />
-        </label>
+          <Typography>Delivery</Typography>
+        </Stack>
 
         <div className="container">
           <div
@@ -151,14 +163,17 @@ class Buyer extends Component {
                     </IconButton>
                     <Button
                       variant="contained"
+                      disabled={product.quantity === 0 ? true : false}
                       startIcon={<ShoppingCartRounded />}
                       onClick={(event) => {
                         // this.handleClick();
+                        event.preventDefault();
                         if (this.state.productQuantities[key])
                           this.props.addProductToCart(
                             key,
                             this.state.productQuantities[key]
                           );
+                        this.handleQuantityZero(key);
                       }}
                     >
                       Add to Cart
