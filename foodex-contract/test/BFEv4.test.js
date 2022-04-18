@@ -1,14 +1,11 @@
 // If your function can be executed as a call, then Truffle will do so and you will be able to avoid gas costs.
 
 const BFEv4 = artifacts.require('./BFEv4.sol')
-
 require('chai')
   .use(require('chai-as-promised'))
   .should()
-
 contract('BFEv4', ([deployer, user, vendor]) => {
   let bfe
-
   before(async () => {
     bfe = await BFEv4.deployed()
   })
