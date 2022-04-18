@@ -5,8 +5,7 @@
   "private": true,
   "author": "atularvi@buffalo.edu",
   "dependencies": {
-    "@truffle/hdwallet-provider": "^2.0.6",
-    "truffle-hdwallet-provider": "^1.0.17",
+    
     "truffle": "^5.5.6"
   }
 }
