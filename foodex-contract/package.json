@@ -5,7 +5,7 @@
   "private": true,
   "author": "atularvi@buffalo.edu",
   "dependencies": {
-    
+  
     "truffle": "^5.5.6"
   }
 }

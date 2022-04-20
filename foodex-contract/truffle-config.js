@@ -1,3 +1,4 @@
+
 module.exports = {
   networks: {
     development: {
@@ -5,7 +6,7 @@ module.exports = {
       port: 7545,
       network_id: "*", // Match any network id
     },
-   
+    
   },
   contracts_directory: "./contracts/",
   contracts_build_directory: "../foodex-app/src/abis/",
