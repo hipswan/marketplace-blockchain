@@ -5,7 +5,16 @@
   "private": true,
   "author": "atularvi@buffalo.edu",
   "dependencies": {
-  
+   
+    "truffle-hdwallet-provider": "^1.0.5",
+    "dotenv": "^7.0.0",
     "truffle": "^5.5.6"
+  },
+  "scripts": {
+    "compile": "truffle compile --all",
+    "test": "truffle test --compile-all",
+    "test:debug": "node inspect ./node_modules/truffle/build/cli.bundled.js test --compile-all",
+    "deploy:dev": "truffle migrate --reset --compile-all",
+    "deploy:ropsten": "truffle migrate --reset --compile-all --network ropsten"
   }
 }
