@@ -36,8 +36,21 @@ class Buyer extends Component {
     this.handleQuantityZero = this.handleQuantityZero.bind(this);
   }
 
+shouldComponentUpdate(nextProps, nextState) {
+  console.log('shouldComponentUpdate',nextProps,nextState);
+  
+  if (this.state.productQuantities.length !== nextProps.products.length) {
+    this.setState({
+      productQuantities: new Array(this.props.products.length).fill(0),
+    });
+   
+  }
+  return true;
+}
+
+
   UNSAFE_componentWillMount(prevProps) {
-    // console.log('props matching',prevProps,this.props,this.props !== prevProps);
+    console.log('props matching',prevProps,this.props,this.props !== prevProps);
     if ( this.props !== prevProps) {
       if (this.props.products)
         this.setState({

@@ -79,7 +79,6 @@ const BuyerAppBar = (props) => {
   };
 
   const handleCloseNavMenu = (event) => {
-    debugger;
     if (event.target.textContent === "Cart") {
       handleCartOpen();
     } else if (event.target.textContent === "Orders") {

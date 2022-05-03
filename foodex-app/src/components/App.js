@@ -44,15 +44,112 @@ class App extends Component {
     await this.loadFirebase();
     await this.loadWeb3();
     await this.loadBlockchainData();
+    window.ethereum.on("accountsChanged", async (accounts) => {
+      if (accounts && accounts !== this.state.accounts) {
+        await this.loadBlockchainData();
+      }
+    });
   }
   async loadFirebase() {
     const app = initializeApp(config);
     this.db = getFirestore(app);
     this.storage = getStorage(app);
-    console.log("In load firebase", this.storage);
+    // console.log("In load firebase", this.storage);
 
     // await this.getSellerDetails();
   }
+  async loadWeb3() {
+    if (window.ethereum) {
+      window.web3 = new Web3(window.ethereum);
+      await window.ethereum.enable();
+    } else if (window.web3) {
+      window.web3 = new Web3(window.web3.currentProvider);
+    } else {
+      window.alert(
+        "Non-Ethereum browser detected. You should consider trying MetaMask!"
+      );
+    }
+  }
+
+  async loadBlockchainData() {
+    const web3 = window.web3;
+    // Load account
+    const accounts = await web3.eth.getAccounts();
+    // this.setState({ account: accounts[0] });
+    var wallet = await web3.eth.getBalance(accounts[0]);
+    wallet = web3.utils.fromWei(wallet, "ether");
+    // this.setState({ wallet: wallet });
+    const networkId = await web3.eth.net.getId();
+    const networkData = BFE.networks[networkId];
+    if (networkData) {
+      //TODO: Check if the account is registered
+      //TODO: If registered as a seller fetch the products
+      //TODO: If registered as a buyer fetch all the products
+      const bfe = new web3.eth.Contract(BFE.abi, networkData.address);
+      this.setState({
+        bfe,
+        openAlert: false,
+        message: undefined,
+        messageInfo: undefined,
+        name: "",
+        currentOrder: undefined,
+        account: accounts[0],
+        loading: true,
+        loadingText: "Loading...",
+        registered: false,
+        isSeller: false,
+        products: [],
+        isTakeout: false,
+        isDelivery: false,
+        productsInCart: new Map(),
+        pastDeliveries: [],
+        pastOrders: [],
+        wallet: wallet,
+        isOrdered: false,
+      });
+      // const productCount = await marketplace.methods.productCount().call()
+      // this.setState({ productCount })
+      // // Load products
+      // for (var i = 1; i <= productCount; i++) {
+      //   const product = await marketplace.methods.products(i).call()
+      //   this.setState({
+      //     products: [...this.state.products, product]
+      //   })
+      // }
+      const currentUserDetails = await bfe.methods
+        .users(this.state.account)
+        .call();
+
+      console.log("currentUserDetails", currentUserDetails);
+      // const isUserReg = await bfe.methods.isUserReg(this.state.account).call();
+
+      if (currentUserDetails.userType === "1" && currentUserDetails.reg) {
+        await this.loadProducts();
+      } else if (
+        currentUserDetails.userType === "0" &&
+        currentUserDetails.reg
+      ) {
+        await this.loadAllProducts();
+        await this.loadBuyerPastOrders();
+        await this.loadCurrentOrder();
+      } else if (
+        currentUserDetails.userType === "2" &&
+        currentUserDetails.reg
+      ) {
+        await this.loadDeliveryPersonDetails();
+      }
+      this.setState({
+        loading: false,
+        registered: currentUserDetails.reg,
+        name: currentUserDetails.reg && currentUserDetails.name,
+        isSeller: currentUserDetails.userType === "1" ? true : false,
+        isDelivery: currentUserDetails.userType === "2" ? true : false,
+      });
+    } else {
+      window.alert("BFE contract not deployed to detected network.");
+    }
+  }
+
   async getSellerDetails() {
     const sellerDetails = collection(this.db, "sellerDetails");
     const sellerDetailsSnapshot = await getDocs(sellerDetails);
@@ -266,18 +363,7 @@ class App extends Component {
       });
     });
   }
-  async loadWeb3() {
-    if (window.ethereum) {
-      window.web3 = new Web3(window.ethereum);
-      await window.ethereum.enable();
-    } else if (window.web3) {
-      window.web3 = new Web3(window.web3.currentProvider);
-    } else {
-      window.alert(
-        "Non-Ethereum browser detected. You should consider trying MetaMask!"
-      );
-    }
-  }
+
   async loadDeliveryPersonDetails() {
     const deliveryRef = doc(this.db, "delivery", this.state.account);
     const deliverySnapshot = await getDoc(deliveryRef);
@@ -350,64 +436,6 @@ class App extends Component {
     });
   }
 
-  async loadBlockchainData() {
-    const web3 = window.web3;
-    // Load account
-    const accounts = await web3.eth.getAccounts();
-    this.setState({ account: accounts[0] });
-    var wallet = await web3.eth.getBalance(this.state.account);
-    wallet = web3.utils.fromWei(wallet, "ether");
-    this.setState({ wallet: wallet });
-    const networkId = await web3.eth.net.getId();
-    const networkData = BFE.networks[networkId];
-    if (networkData) {
-      //TODO: Check if the account is registered
-      //TODO: If registered as a seller fetch the products
-      //TODO: If registered as a buyer fetch all the products
-      const bfe = new web3.eth.Contract(BFE.abi, networkData.address);
-      this.setState({ bfe });
-      // const productCount = await marketplace.methods.productCount().call()
-      // this.setState({ productCount })
-      // // Load products
-      // for (var i = 1; i <= productCount; i++) {
-      //   const product = await marketplace.methods.products(i).call()
-      //   this.setState({
-      //     products: [...this.state.products, product]
-      //   })
-      // }
-      const currentUserDetails = await bfe.methods
-        .users(this.state.account)
-        .call();
-
-      console.log("currentUserDetails", currentUserDetails);
-      // const isUserReg = await bfe.methods.isUserReg(this.state.account).call();
-
-      if (currentUserDetails.userType === "1" && currentUserDetails.reg) {
-        await this.loadProducts();
-      } else if (
-        currentUserDetails.userType === "0" &&
-        currentUserDetails.reg
-      ) {
-        await this.loadAllProducts();
-        await this.loadBuyerPastOrders();
-        await this.loadCurrentOrder();
-      } else if (
-        currentUserDetails.userType === "2" &&
-        currentUserDetails.reg
-      ) {
-        await this.loadDeliveryPersonDetails();
-      }
-      this.setState({
-        loading: false,
-        registered: currentUserDetails.reg,
-        name: currentUserDetails.reg && currentUserDetails.name,
-        isSeller: currentUserDetails.userType === "1" ? true : false,
-        isDelivery: currentUserDetails.userType === "2" ? true : false,
-      });
-    } else {
-      window.alert("BFE contract not deployed to detected network.");
-    }
-  }
   handleAlertOpen(messageInfo, message) {
     this.setState({ messageInfo, message, openAlert: true });
   }
@@ -578,8 +606,11 @@ class App extends Component {
   }
 
   async orderProduct(isDelv) {
-    
-    if ("currentOrder" in this.state && "status" in this.state.currentOrder) {
+    if (
+      "currentOrder" in this.state &&
+      this.state.currentOrder &&
+      "status" in this.state.currentOrder
+    ) {
       this.handleAlertOpen("error", "You have an order in progress");
       return;
     }
@@ -677,7 +708,6 @@ class App extends Component {
 
   async settlePayment(isDelv) {
     this.setState({ loading: true });
-    debugger;
     this.state.bfe.methods
       .SettlePayment(this.state.currentOrder.sellersAmount)
       .send({
@@ -704,7 +734,9 @@ class App extends Component {
         }
         await this.orderReceived();
         this.state.products = [];
+        this.state.pastOrders = [];
         await this.loadAllProducts();
+        await this.loadBuyerPastOrders();
         this.handleAlertOpen("success", "Payment Settled Successfully");
 
         this.setState({ productsInCart: [], loading: false, isOrdered: false });
