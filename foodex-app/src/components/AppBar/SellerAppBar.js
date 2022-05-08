@@ -136,6 +136,9 @@ const SellerAppBar = (props) => {
                 {page}
               </Button>
             ))}
+            <Button sx={{ my: 2, mx: 1, color: "black", display: "block" }}>
+              {props.swad} Swad
+            </Button>
           </Box>
 
           <Box sx={{ flexGrow: 0 }}>

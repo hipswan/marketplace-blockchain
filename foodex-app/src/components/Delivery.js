@@ -11,6 +11,7 @@ import { CardActionArea, CardActions, Stack } from "@mui/material";
 import { Card } from "@mui/material";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
+import Divider from "@mui/material/Divider";
 
 class Delivery extends Component {
   render() {
@@ -47,6 +48,20 @@ class Delivery extends Component {
 
     return (
       <Stack>
+
+<Box sx={{ display: 'flex', flex: "row"
+          , alignItems:'center'
+      
+      }}>
+          <Typography
+            variant="h2"
+          >Welcome {this.props.name}</Typography>
+
+          <Card sx={{ backgroundColor: "black", color: "white",pl:1,pr:1,ml:2,height:"30px" }}>
+            <Typography>Delivery</Typography>
+          </Card>
+        </Box>
+        <Divider />
         <h1>Current Task </h1>
 
         <Card

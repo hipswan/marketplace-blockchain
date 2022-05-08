@@ -95,13 +95,13 @@ const BuyerAppBar = (props) => {
   const productsInCart = Array.from(
     new Map(Object.entries(props.productsInCart)).values()
   );
-  const comission = 0.05;
+  const comission = 0.5;
   const delivery = props.isTakeout ? 0 : 1;
 
   const currentOrder = props.currentOrder;
   const pastOrders = props.pastOrders;
-  console.log("In Buyer app bar -> current order", currentOrder);
-  console.log("In Buyer app bar -> past order", pastOrders);
+  // console.log("In Buyer app bar -> current order", currentOrder);
+  // console.log("In Buyer app bar -> past order", pastOrders);
 
   const columns = [
     { field: "id", headerName: "Order ID", width: 200 },
@@ -140,10 +140,14 @@ const BuyerAppBar = (props) => {
       totalPrice: order.totalPrice,
     };
   });
-  if (!props.isOrdered  && props.currentOrder && "products" in props.currentOrder){
+  if (
+    !props.isOrdered &&
+    props.currentOrder &&
+    "products" in props.currentOrder
+  ) {
     handleOrderOpen();
   }
-
+  // console.log("In Buyer app bar -> swad balance", props.swad);
   return (
     <AppBar position="static" sx={{ bgcolor: "background.paper" }}>
       <Container maxWidth="xl">
@@ -273,6 +277,9 @@ const BuyerAppBar = (props) => {
             >
               Orders
             </Button>
+            <Button sx={{ my: 2, mx: 1, color: "black", display: "block" }}>
+              {props.swad} Swad
+            </Button>
           </Box>
 
           <Box sx={{ flexGrow: 0 }}>
@@ -377,7 +384,6 @@ const BuyerAppBar = (props) => {
                     <CardActions>
                       <Button
                         onClick={(event) => {
-                          
                           props.deleteProductFromCart(product.productId);
                         }}
                       >

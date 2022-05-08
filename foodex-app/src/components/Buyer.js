@@ -1,8 +1,7 @@
 import React, { Component } from "react";
 import Switch from "react-switch";
 import ShoppingCartRounded from "@mui/icons-material/ShoppingCartRounded";
-import ButtonGroup from "@mui/material/ButtonGroup";
-import Snackbar from "@mui/material/Snackbar";
+import Box from '@mui/material/Box';
 import MuiAlert from "@mui/material/Alert";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
@@ -15,8 +14,9 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import IconButton from "@mui/material/IconButton";
 import Modal from "@mui/material/Modal";
 import BuyerBuying from "./assets/buyer.png";
-
+import Divider from "@mui/material/Divider";
 import { Stack } from "@mui/material";
+import { flexbox } from "@mui/system";
 const Alert = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
 });
@@ -36,22 +36,20 @@ class Buyer extends Component {
     this.handleQuantityZero = this.handleQuantityZero.bind(this);
   }
 
-shouldComponentUpdate(nextProps, nextState) {
-  console.log('shouldComponentUpdate',nextProps,nextState);
-  
-  if (this.state.productQuantities.length !== nextProps.products.length) {
-    this.setState({
-      productQuantities: new Array(this.props.products.length).fill(0),
-    });
-   
-  }
-  return true;
-}
+  shouldComponentUpdate(nextProps, nextState) {
+    // console.log('shouldComponentUpdate',nextProps,nextState);
 
+    if (this.state.productQuantities.length !== nextProps.products.length) {
+      this.setState({
+        productQuantities: new Array(this.props.products.length).fill(0),
+      });
+    }
+    return true;
+  }
 
   UNSAFE_componentWillMount(prevProps) {
-    console.log('props matching',prevProps,this.props,this.props !== prevProps);
-    if ( this.props !== prevProps) {
+    // console.log('props matching',prevProps,this.props,this.props !== prevProps);
+    if (this.props !== prevProps) {
       if (this.props.products)
         this.setState({
           productQuantities: new Array(this.props.products.length).fill(0),
@@ -88,11 +86,22 @@ shouldComponentUpdate(nextProps, nextState) {
 
   render() {
     return (
-      
       <div id="content">
-        <h1>Hello {this.props.name}</h1>
+        <Box sx={{ display: 'flex', flex: "row"
+          , alignItems:'center'
+      
+      }}>
+          <Typography
+            variant="h2"
+          >Welcome! {this.props.name}</Typography>
 
-        <p>&nbsp;</p>
+          <Card sx={{ backgroundColor: "black", color: "white",pl:1,pr:1,ml:2,height:"30px" }}>
+            <Typography>Buyer</Typography>
+          </Card>
+        </Box>
+        {/* <h1>Hello {this.props.name}</h1> */}
+
+        <Divider />
         <h2>Product Details</h2>
 
         <Stack direction="row" spacing={1} alignItems="center">

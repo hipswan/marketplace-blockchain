@@ -12,6 +12,8 @@ import CardMedia from "@mui/material/CardMedia";
 import IconButton from "@mui/material/IconButton";
 import ModeEditOutlineRoundedIcon from "@mui/icons-material/ModeEditOutlineRounded";
 import DeleteForeverRoundedIcon from "@mui/icons-material/DeleteForeverRounded";
+import Divider from "@mui/material/Divider";
+
 const style = {
   position: "absolute",
   top: "50%",
@@ -51,7 +53,24 @@ class Seller extends Component {
   render() {
     return (
       <div id="content">
-        <h1>Hello {this.props.name}</h1>
+        <Box sx={{ display: "flex", flex: "row", alignItems: "center" }}>
+          <Typography variant="h2">Welcome! {this.props.name}</Typography>
+
+          <Card
+            sx={{
+              backgroundColor: "black",
+              color: "white",
+              pl: 1,
+              pr: 1,
+              ml: 2,
+              height: "30px",
+            }}
+          >
+            <Typography>Seller</Typography>
+          </Card>
+        </Box>
+        <Divider />
+        {/* <h1>Hello {this.props.name}</h1> */}
 
         <Box
           sx={{

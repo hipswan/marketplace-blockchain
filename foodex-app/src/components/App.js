@@ -3,6 +3,7 @@ import Web3 from "web3";
 import "./App.css";
 import Navbar from "./Navbar";
 import BFE from "../abis/BFEv4.json";
+import SWAD from "../abis/ERC20MYN.json";
 import RegisterForm from "./RegisterForm";
 import { initializeApp } from "firebase/app";
 import Backdrop from "@mui/material/Backdrop";
@@ -39,6 +40,7 @@ const Alert = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
 });
 
+var contract = null;
 class App extends Component {
   async UNSAFE_componentWillMount() {
     await this.loadFirebase();
@@ -71,6 +73,14 @@ class App extends Component {
     }
   }
 
+  async getSwadBalance(bfe, address) {
+    const web3 = window.web3;
+    return web3.utils.fromWei(
+      await bfe.methods.SwdBalance().call({ from: address }),
+      "ether"
+    );
+  }
+
   async loadBlockchainData() {
     const web3 = window.web3;
     // Load account
@@ -80,14 +90,31 @@ class App extends Component {
     wallet = web3.utils.fromWei(wallet, "ether");
     // this.setState({ wallet: wallet });
     const networkId = await web3.eth.net.getId();
-    const networkData = BFE.networks[networkId];
-    if (networkData) {
+
+    const bfeNetworkData = BFE.networks[networkId];
+    const bfeContractAddress = BFE.networks[networkId].address;
+    const swadContractAddress = SWAD.networks[networkId].address;
+
+    if (bfeNetworkData) {
       //TODO: Check if the account is registered
       //TODO: If registered as a seller fetch the products
       //TODO: If registered as a buyer fetch all the products
-      const bfe = new web3.eth.Contract(BFE.abi, networkData.address);
+      const bfe = new web3.eth.Contract(BFE.abi, bfeContractAddress);
+      const swad = new web3.eth.Contract(SWAD.abi, swadContractAddress);
+      //TODO: Delete the below line
+      contract = swad;
+      console.log("Buffalo Food Exchange", contract, bfeContractAddress);
+      console.log("Swad ", swad, swadContractAddress);
+      console.log(
+        "Contract balance ",
+        await this.getSwadBalance(bfe, bfeContractAddress)
+      );
+      // debugger;
       this.setState({
         bfe,
+        swad,
+        bfeContractAddress,
+        swadContractAddress,
         openAlert: false,
         message: undefined,
         messageInfo: undefined,
@@ -106,21 +133,14 @@ class App extends Component {
         pastOrders: [],
         wallet: wallet,
         isOrdered: false,
+        tokens: 0,
       });
-      // const productCount = await marketplace.methods.productCount().call()
-      // this.setState({ productCount })
-      // // Load products
-      // for (var i = 1; i <= productCount; i++) {
-      //   const product = await marketplace.methods.products(i).call()
-      //   this.setState({
-      //     products: [...this.state.products, product]
-      //   })
-      // }
+
       const currentUserDetails = await bfe.methods
         .users(this.state.account)
         .call();
 
-      console.log("currentUserDetails", currentUserDetails);
+      // console.log("currentUserDetails", currentUserDetails);
       // const isUserReg = await bfe.methods.isUserReg(this.state.account).call();
 
       if (currentUserDetails.userType === "1" && currentUserDetails.reg) {
@@ -138,6 +158,7 @@ class App extends Component {
       ) {
         await this.loadDeliveryPersonDetails();
       }
+      await this.loadAccountBalance();
       this.setState({
         loading: false,
         registered: currentUserDetails.reg,
@@ -156,7 +177,7 @@ class App extends Component {
     const sellerDetailsList = sellerDetailsSnapshot.docs.map((doc) =>
       doc.data()
     );
-    console.log(sellerDetailsList);
+    // console.log(sellerDetailsList);
   }
   async setUserDetails(name, id, type, txHash) {
     const user = collection(this.db, "users");
@@ -189,7 +210,7 @@ class App extends Component {
   }
 
   async uploadFile(file) {
-    console.log("In upload file", this.storage);
+    // console.log("In upload file", this.storage);
     const storageRef = ref(this.storage, "images/" + Timestamp.now());
     const uploadTask = await uploadBytes(storageRef, file);
     const downloadURL = await getDownloadURL(uploadTask.ref);
@@ -274,17 +295,17 @@ class App extends Component {
       where("type", "==", "seller")
     );
     // debugger;
-    console.log(sellersRef);
+    // console.log(sellersRef);
     const sellersSnapshot = await getDocs(sellersRef);
-    console.log(sellersSnapshot);
+    // console.log(sellersSnapshot);
     sellersSnapshot.forEach(async (e) => {
       // doc.data() is never undefined for query doc snapshots
-      console.log(e.id, " => ", e.data());
+      // console.log(e.id, " => ", e.data());
       const productsRef = collection(doc(this.db, "sellers", e.id), "products");
       const productsSnapshot = await getDocs(productsRef);
       productsSnapshot.forEach((doc) => {
         // doc.data() is never undefined for query doc snapshots
-        console.log(doc.id, " => ", doc.data());
+        // console.log(doc.id, " => ", doc.data());
         this.setState({
           products: [
             ...this.state.products,
@@ -334,7 +355,7 @@ class App extends Component {
     const pastDeliveriesSnapshot = await getDocs(pastDeliveriesRef);
     pastDeliveriesSnapshot.forEach((doc) => {
       // doc.data() is never undefined for query doc snapshots
-      console.log(doc.id, " => ", doc.data());
+      // console.log(doc.id, " => ", doc.data());
       this.setState({
         pastDeliveries: [
           ...this.state.pastDeliveries,
@@ -342,6 +363,17 @@ class App extends Component {
         ],
       });
     });
+  }
+
+  async loadAccountBalance() {
+    const web3 = window.web3;
+
+    const balanceInWei = await this.state.bfe.methods
+      .SwdBalance()
+      .call({ from: this.state.account });
+
+    // console.log("Swad Balance", web3.utils.fromWei(balanceInWei, "ether"));
+    this.setState({ tokens: web3.utils.fromWei(balanceInWei, "ether") });
   }
 
   async loadProducts() {
@@ -399,7 +431,7 @@ class App extends Component {
         currentOrder: buyerSnapshot.data(),
       });
     } else {
-      console.log("No Current Order");
+      // console.log("No Current Order");
     }
   }
 
@@ -453,7 +485,8 @@ class App extends Component {
     productIds,
     totalPrice,
     deliveryPersonAssigned,
-    sellersAmount
+    sellersAmount,
+    isDelivery
   ) {
     const buyerRef = doc(this.db, "buyers", this.state.account);
     const docRef = await setDoc(buyerRef, {
@@ -465,6 +498,7 @@ class App extends Component {
       sellersAmount: sellersAmount,
       status: "pending",
       timeOrdered: Timestamp.now(),
+      isDelivery: isDelivery,
     });
     return "1";
   }
@@ -535,7 +569,7 @@ class App extends Component {
         from: this.state.account,
       })
       .once("receipt", async (receipt) => {
-        console.log("receipt", receipt);
+        // console.log("receipt", receipt);
         await this.notifyDeliveryPerson(
           this.state.account,
           this.state.deliveryPerson.listOfProduct,
@@ -546,7 +580,7 @@ class App extends Component {
         this.setState({ loading: false });
       })
       .catch((err) => {
-        console.log(err);
+        // console.log(err);
         this.handleAlertOpen("error", err.message);
         this.setState({ loading: false });
       });
@@ -626,22 +660,27 @@ class App extends Component {
     const web3 = window.web3;
     productsInCart.forEach((product) => {
       let seller = product.sellerId;
-      let amount = web3.utils.toWei(
-        (product.price * product.quantityNeeded).toString(),
-        "ether"
-      );
+      // let amount = web3.utils.toWei(
+      //   (product.price * product.quantityNeeded).toString(),
+      //   "ether"
+      // );
+      // let amount = web3.utils.toBN(
+      //   product.price * product.quantityNeeded * 10 ** 18
+      // );
+      let amount = product.price * product.quantityNeeded;
       let encodeAmount = web3.eth.abi.encodeParameter("uint256", amount);
       let stripEncodeAmount = web3.utils.stripHexPrefix(encodeAmount);
-      let sellerAmount = seller + stripEncodeAmount.substring(40);
+      let sellerAmount =
+        seller.toString().toLowerCase() + stripEncodeAmount.substring(40);
       sellers.push(seller);
-      amounts.push(product.price * product.quantityNeeded);
+      amounts.push(amount);
       sellersAmount.push(sellerAmount);
       productId.push(product.productId);
 
       totalPrice += product.price * product.quantityNeeded;
     });
 
-    const margin = 0.05;
+    const margin = 0.5;
     totalPrice += margin;
     var deliveryPerson = this.state.account;
     var deliveryCost = 0;
@@ -656,18 +695,23 @@ class App extends Component {
         this.handleAlertOpen("error", "Delivery Person not available");
         return;
       }
-      let amount = web3.utils.toWei(deliveryCost.toString(), "ether");
+      // let amount = web3.utils.toWei(deliveryCost.toString(), "ether");
+      let amount = deliveryCost;
+      amounts.push(amount);
       let encodeAmount = web3.eth.abi.encodeParameter("uint256", amount);
       let stripEncodeAmount = web3.utils.stripHexPrefix(encodeAmount);
-      let sellerAmount = deliveryPerson + stripEncodeAmount.substring(40);
+      let sellerAmount =
+        deliveryPerson.toString().toLowerCase() +
+        stripEncodeAmount.substring(40);
 
       sellersAmount.push(sellerAmount);
       if (!deliveryPerson) {
         alert("No delivery person available");
         return;
       }
-      console.log("deliveryPerson", deliveryPerson);
+      // console.log("deliveryPerson", deliveryPerson);
     }
+    debugger;
     this.setState({ loading: true });
     let orderId = await this.saveOrderToFirestore(
       sellers,
@@ -675,13 +719,15 @@ class App extends Component {
       productId,
       totalPrice,
       deliveryPerson,
-      sellersAmount
+      sellersAmount,
+      isDelv
     );
+    debugger;
     this.state.bfe.methods
-      .Order(web3.utils.toBN(orderId))
+      .Order(web3.utils.toBN(orderId), web3.utils.toBN(totalPrice * 10 ** 18))
       .send({
         from: this.state.account,
-        value: window.web3.utils.toWei(totalPrice.toString(), "ether"),
+        // value: window.web3.utils.toWei(totalPrice.toString(), "ether"),
       })
       .once("receipt", async (receipt) => {
         // const buyMetaData = receipt["events"]["FoodItemBought"]["returnValues"];
@@ -700,22 +746,47 @@ class App extends Component {
         this.setState({ productsInCart: [], loading: false, isOrdered: true });
       })
       .catch((err) => {
-        console.log(err);
+        // console.log(err);
         this.handleAlertOpen("error", err.message);
         this.setState({ loading: false });
       });
   }
 
-  async settlePayment(isDelv) {
-    this.setState({ loading: true });
+  async settlePayment() {
+    debugger;
+    const web3 = window.web3;
+
+    this.setState({ loading: true, loadingmsg: "Settling Payment..." });
+    const isDelv = this.state.currentOrder.isDelivery;
+    const amounts = this.state.currentOrder.amounts.map((amount) => {
+      return web3.utils.toBN(amount * 10 ** 18);
+    });
+    console.log(this.state.currentOrder);
+    let address = [];
+    address.push(this.state.currentOrder.sellers[0]);
+
+    if (isDelv) {
+      address.push(this.state.currentOrder.deliveryPersonAssigned);
+    }
+    let sellerAmountInBytes = [];
+    for (let i = 0; i < address.length; i++) {
+      let encodeAmount = web3.eth.abi.encodeParameter("uint256", amounts[i]);
+      let stripEncodeAmount = web3.utils.stripHexPrefix(encodeAmount);
+      let sellerAmount =
+        address[i].toString().toLowerCase() + stripEncodeAmount.substring(40);
+      sellerAmountInBytes.push(sellerAmount);
+    }
+    debugger;
     this.state.bfe.methods
-      .SettlePayment(this.state.currentOrder.sellersAmount)
+      .SettlePayment(sellerAmountInBytes)
       .send({
         from: this.state.account,
         // value: window.web3.utils.toWei(
         //   this.state.currentOrder.totalPrice.toString(),
         //   "ether"
         // ),
+        // gas: 2100000,
+        // gasPrice: 8000000000,
       })
       .once("receipt", async (receipt) => {
         // const buyMetaData = receipt["events"]["FoodItemBought"]["returnValues"];
@@ -738,11 +809,10 @@ class App extends Component {
         await this.loadAllProducts();
         await this.loadBuyerPastOrders();
         this.handleAlertOpen("success", "Payment Settled Successfully");
-
         this.setState({ productsInCart: [], loading: false, isOrdered: false });
       })
       .catch((err) => {
-        console.log(err);
+        // console.log(err);
         this.handleAlertOpen("error", err.message);
         this.setState({ loading: false });
       });
@@ -780,51 +850,69 @@ class App extends Component {
         this.setState({ loading: false, registered: false });
       })
       .catch((err) => {
-        console.log(err);
+        // console.log(err);
         this.handleAlertOpen("error", err.message);
         this.setState({ loading: false });
       });
   }
 
   registerUser(name, userType) {
+    // debugger;
+    const web3 = window.web3;
     this.setState({ loading: true, loadingText: " Registering User..." });
 
     var userTypeValue = window.web3.utils.toBN(
       userType === "seller" ? "1" : userType === "delivery" ? "2" : "0"
     );
-
+    debugger;
     this.state.bfe.methods
       .UserReg(name, userTypeValue)
       .send({ from: this.state.account })
       .once("receipt", async (receipt) => {
-        console.log(receipt);
-        var userMetaData = receipt["events"]["UserRegistered"]["returnValues"];
-        await this.setUserDetails(
-          name,
-          userMetaData.bid,
-          userType,
-          receipt.transactionHash
-        );
-        if (userType === "seller") {
-          await this.loadProducts();
-        } else if (userType === "delivery") {
-          await this.loadPastDeliveries();
-        } else {
-          await this.loadAllProducts();
-        }
-        this.handleAlertOpen("success", "User Registered Succcessfully");
+        // console.log(receipt);
 
-        this.setState({
-          loading: false,
-          loadingText: "",
-          name: name,
-          registered: true,
-          isSeller: userType === "seller" ? true : false,
-          isDelivery: userType === "delivery" ? true : false,
-        });
+        var userMetaData = receipt["events"]["UserRegistered"]["returnValues"];
+        this.state.swad.methods
+          .approve(
+            this.state.bfeContractAddress,
+            web3.utils.toWei("100000", "ether")
+          )
+          .send({
+            from: this.state.account,
+          })
+          .once("receipt", async (receipt) => {
+            await this.setUserDetails(
+              name,
+              userMetaData.bid,
+              userType,
+              receipt.transactionHash
+            );
+            if (userType === "seller") {
+              await this.loadProducts();
+            } else if (userType === "delivery") {
+              await this.loadPastDeliveries();
+            } else {
+              await this.loadAllProducts();
+            }
+            this.handleAlertOpen("success", "User Registered Succcessfully");
+
+            this.setState({
+              loading: false,
+              loadingText: "",
+              name: name,
+              registered: true,
+              isSeller: userType === "seller" ? true : false,
+              isDelivery: userType === "delivery" ? true : false,
+            });
+          })
+          .catch((err) => {
+            // console.log(err);
+            this.handleAlertOpen("error", err.message);
+            this.setState({ loading: false });
+          });
       })
       .catch((err) => {
-        console.log(err);
+        // console.log(err);
         this.handleAlertOpen("error", err.message);
         this.setState({ loading: false });
       });
@@ -839,6 +927,7 @@ class App extends Component {
           <SellerAppBar
             account={this.state.account}
             wallet={this.state.wallet}
+            swad={this.state.tokens}
             isreg={this.state.registered}
             unregister={this.unregisterUser}
             productsInCart={this.state.productsInCart}
@@ -849,6 +938,7 @@ class App extends Component {
           <DeliveryAppBar
             account={this.state.account}
             wallet={this.state.wallet}
+            swad={this.state.tokens}
             isreg={this.state.registered}
             unregister={this.unregisterUser}
             productsInCart={this.state.productsInCart}
@@ -859,6 +949,7 @@ class App extends Component {
           <BuyerAppBar
             account={this.state.account}
             wallet={this.state.wallet}
+            swad={this.state.tokens}
             isreg={this.state.registered}
             unregister={this.unregisterUser}
             productsInCart={this.state.productsInCart}
