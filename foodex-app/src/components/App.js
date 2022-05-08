@@ -741,6 +741,7 @@ class App extends Component {
         this.state.products = [];
         await this.loadAllProducts();
         await this.loadCurrentOrder();
+        await this.loadAccountBalance();
         this.handleAlertOpen("success", "Order Placed Successfuly");
 
         this.setState({ productsInCart: [], loading: false, isOrdered: true });
@@ -894,6 +895,7 @@ class App extends Component {
             } else {
               await this.loadAllProducts();
             }
+            await this.loadAccountBalance();
             this.handleAlertOpen("success", "User Registered Succcessfully");
 
             this.setState({
