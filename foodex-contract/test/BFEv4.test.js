@@ -1,11 +1,12 @@
 // If your function can be executed as a call, then Truffle will do so and you will be able to avoid gas costs.
+const assert = require("assert");
 const Web3 = require("web3");
 require("chai").use(require("chai-as-promised")).should();
 
 const web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:7545"));
 const BFEv4 = artifacts.require("./contracts/BFEv4.sol");
-
-(abi = [
+const ERC20MYN = artifacts.require("./contracts/ERC20MYN.sol");
+abi = [
   {
     inputs: [
       {
@@ -217,103 +218,245 @@ const BFEv4 = artifacts.require("./contracts/BFEv4.sol");
     ],
     name: "SettlePayment",
     outputs: [],
-    stateMutability: "payable",
+    stateMutability: "nonpayable",
     type: "function",
-    payable: true,
   },
-]),
-  contract("BFEv4", (accounts) => {
-    let deployer = accounts[0];
-    let user = accounts[1];
-    let seller = accounts[2];
-    let delivery = accounts[3];
-    let bfe, BFE;
-    before(async () => {
-      BFE = await BFEv4.deployed();
-
-      bfe = new web3.eth.Contract(abi, BFE.address);
-    });
-
-    describe("deployment", async () => {
-      it("deploys successfully", async () => {
-        const address = await BFE.address;
-        assert.notEqual(address, 0x0);
-        assert.notEqual(address, "");
-        assert.notEqual(address, null);
-        assert.notEqual(address, undefined);
-      });
-
-      // it('has a name', async () => {
-      //   const name = await marketplace.name()
-      //   assert.equal(name, 'Dapp University Marketplace')
-      // })
-    });
-
-    describe("registeration", async () => {
-      let userRegister,balance,vendorRegister, users;
-      before(async () => {
-        userRegister = await bfe.methods
-          .UserReg("atul singh", 0)
-          .send({ from: user, gas: "1000000" });
-        // users = await bfe.users(user)
-      });
-      it("register user", async () => {
-        console.log('User Registration',userRegister);
-        balance = await bfe.methods.SwdBalance().call();
-        assert.equal(20, balance );
-        // console.log(users)
-        // assert.equal(userRegister.logs[0].args.bname, "atul singh");
-        // assert.equal(userRegister.logs[0].args.user, user);
-      });
-      // it('register vendor',async ()=>{
-      //     // console.log(vendorRegister.logs[0].args)
-      //     assert.equal(vendorRegister.logs[0].args.sname, 'yash rathi')
-      //     assert.equal(vendorRegister.logs[0].args.vendor, vendor)
-
-      // })
-    });
-
-    // describe('list food item' , async() =>{
-    //     let foodItem
-    //     before(async ()=>{
-
-    //         foodItem = await bfe.FoodItemReg('chicken',1,1,{from:vendor})
-    //     })
-
-    //     it('list food item', async()=>{
-
-    //         // console.log(foodItem.logs[0].args)
-    //         assert.equal(foodItem.logs[0].args.fname, 'chicken')
-    //         assert.equal(foodItem.logs[0].args.seller, vendor)
-    //         // assert.equal(foodItem.logs[0].args.price, web3.utils.BN(50))
-    //         // assert.equal(foodItem.logs[0].args.count, 1)
-    //     })
-
-    // })
-
-    // describe('buy food item' , async() =>{
-
-    //     let buyFood,oldSellerBalance,price;
-    //     price = web3.utils.toWei('1', 'ether')
-    //     console.log(price)
-    //     before(async ()=>{
-
-    //       oldSellerBalance = await web3.eth.getBalance(vendor)
-
-    //         buyFood = await bfe.Buy(1,1,{from:user,value:price})
-    //     })
-    //     it('buy food item', async()=>{
-
-    //         oldSellerBalance =new web3.utils.BN(oldSellerBalance)
-    //         let newSellerBalance
-    //         newSellerBalance = await web3.eth.getBalance(vendor)
-
-    //         newSellerBalance =new web3.utils.BN(newSellerBalance)
-
-    //         price =new web3.utils.BN(price)
-    //         const exepectedBalance = oldSellerBalance.add(price)
-    //         assert.equal(newSellerBalance.toString(), exepectedBalance.toString())
-
-    //     })
-    // });
+];
+contract("BFEv4", (accounts) => {
+  let deployer = accounts[0];
+  let user = accounts[1];
+  let seller = accounts[2];
+  let delivery = accounts[3];
+  let bfeContractBalance;
+  let bfe, BFE;
+  before(async () => {
+    BFE = await BFEv4.deployed();
+    SWAD = await ERC20MYN.deployed();
+    // bfe = new web3.eth.Contract(abi, BFE.address);
+    // swad = new web3.eth.Contract(abi, SWAD.address);
   });
+
+  describe("deployment", async () => {
+    let deployerBalance;
+    before(async () => {
+      bfeContractBalance = await SWAD.balanceOf(BFE.address, {
+        from: deployer,
+      });
+      deployerBalance = await SWAD.balanceOf(deployer, { from: deployer });
+      // console.log("deployerBalance", deployerBalance);
+      // console.log("bfeContractBalance", bfeContractBalance);
+    });
+    it("deploys successfully", async () => {
+      var address = BFE.address;
+      assert.notEqual(address, 0x0);
+      assert.notEqual(address, "");
+      assert.notEqual(address, null);
+      assert.notEqual(address, undefined);
+      address = SWAD.address;
+      assert.equal(web3.utils.fromWei(deployerBalance, "ether"), 100000);
+      assert.equal(web3.utils.fromWei(bfeContractBalance, "ether"), 0);
+    });
+    it("Initital Suppy Deployer", async () => {
+      var address = BFE.address;
+      assert.notEqual(address, 0x0);
+      assert.notEqual(address, "");
+      assert.notEqual(address, null);
+      assert.notEqual(address, undefined);
+      address = SWAD.address;
+      assert.notEqual(address, 0x0);
+      assert.notEqual(address, "");
+      assert.notEqual(address, null);
+      assert.notEqual(address, undefined);
+    });
+
+    // it('has a name', async () => {
+    //   const name = await marketplace.name()
+    //   assert.equal(name, 'Dapp University Marketplace')
+    // })
+  });
+
+  describe("registeration", async () => {
+    let userRegister, sellerRegister, deliveryRegister, balance;
+    before(async () => {
+      // console.log("bfe",BFE)
+      userRegister = await BFE.UserReg("atul singh", 0, { from: user });
+      // console.log("userRegisterd", userRegister.logs[0].args);
+      sellerRegister = await BFE.UserReg("yash rathi", 1, { from: seller });
+      deliveryRegister = await BFE.UserReg("aniket bharti", 2, {
+        from: delivery,
+      });
+      // // users = await bfe.users(user)
+    });
+    it("user register", async () => {
+      balance = await BFE.SwdBalance.call({ from: user });
+      balance = web3.utils.fromWei(balance);
+      assert.equal(20, balance);
+      assert.equal(userRegister.logs[0].args.bname, "atul singh");
+      assert.equal(userRegister.logs[0].args.bid, 1);
+      assert.equal(userRegister.logs[0].args.userType, 0);
+    });
+    it("seller register", async () => {
+      // console.log(vendorRegister.logs[0].args)
+      balance = await BFE.SwdBalance.call({ from: seller });
+      balance = web3.utils.fromWei(balance);
+      assert.equal(20, balance);
+      assert.equal(sellerRegister.logs[0].args.bname, "yash rathi");
+      assert.equal(sellerRegister.logs[0].args.bid, 2);
+      assert.equal(sellerRegister.logs[0].args.userType, 1);
+    });
+    it("delivery register", async () => {
+      balance = await BFE.SwdBalance.call({ from: delivery });
+      balance = web3.utils.fromWei(balance);
+      assert.equal(20, balance);
+      assert.equal(deliveryRegister.logs[0].args.bname, "aniket bharti");
+      assert.equal(deliveryRegister.logs[0].args.bid, 3);
+      assert.equal(deliveryRegister.logs[0].args.userType, 2);
+    });
+  });
+
+  describe("Approve Smart Contract", async () => {
+    let allowance, approveSupply;
+    before(async () => {
+      approveSupply = 100000;
+      await SWAD.approve(
+        BFE.address,
+        web3.utils.toWei(approveSupply.toString(), "ether"),
+        {
+          from: user,
+        }
+      );
+      await SWAD.approve(
+        BFE.address,
+        web3.utils.toWei(approveSupply.toString(), "ether"),
+        {
+          from: seller,
+        }
+      );
+      await SWAD.approve(
+        BFE.address,
+        web3.utils.toWei(approveSupply.toString(), "ether"),
+        {
+          from: delivery,
+        }
+      );
+    });
+
+    it("user allowance approval", async () => {
+      allowance = await SWAD.allowance(user, BFE.address, { from: user });
+      allowance = web3.utils.fromWei(allowance, "ether");
+
+      assert.equal(approveSupply, allowance);
+      // console.log("allowance", allowance);
+      // console.log(foodItem.logs[0].args)
+      // assert.equal(foodItem.logs[0].args.fname, "chicken");
+      // assert.equal(foodItem.logs[0].args.seller, vendor);
+      // assert.equal(foodItem.logs[0].args.price, web3.utils.BN(50))
+      // assert.equal(foodItem.logs[0].args.count, 1)
+    });
+    it("seller allowance approval", async () => {
+      allowance = await SWAD.allowance(seller, BFE.address, { from: seller });
+      allowance = web3.utils.fromWei(allowance, "ether");
+      // console.log("allowance", allowance);
+      assert.equal(approveSupply, allowance);
+    });
+    it("delivery allowance approval", async () => {
+      allowance = await SWAD.allowance(delivery, BFE.address, {
+        from: delivery,
+      });
+      allowance = web3.utils.fromWei(allowance, "ether");
+      // console.log("allowance", allowance);
+      assert.equal(approveSupply, allowance);
+    });
+  });
+
+  describe("Order Food", async () => {
+    let userBalance,
+      bfeContractBalance,
+      userBalanceAfterOrder,
+      bfeContractBalanceAfterOrder;
+    before(async () => {
+      userBalance = await SWAD.balanceOf(user, { from: user });
+      bfeContractBalance = await SWAD.balanceOf(BFE.address, { from: user });
+
+      await BFE.Order(1, web3.utils.toWei("5", "ether"), {
+        from: user,
+      });
+      userBalanceAfterOrder = await SWAD.balanceOf(user, { from: user });
+      bfeContractBalanceAfterOrder = await SWAD.balanceOf(BFE.address, {
+        from: user,
+      });
+
+      // console.log("userBalance", userBalance);
+    });
+
+    it("user swad transferred to contract", async () => {
+      userBalance = web3.utils.fromWei(userBalance, "ether");
+      userBalanceAfterOrder = web3.utils.fromWei(
+        userBalanceAfterOrder,
+        "ether"
+      );
+      bfeContractBalance = web3.utils.fromWei(bfeContractBalance, "ether");
+      bfeContractBalanceAfterOrder = web3.utils.fromWei(
+        bfeContractBalanceAfterOrder,
+        "ether"
+      );
+      assert.equal(parseInt(userBalance - 5), parseInt(userBalanceAfterOrder));
+      assert.equal(
+        parseInt(bfeContractBalance + 5),
+        parseInt(bfeContractBalanceAfterOrder)
+      );
+      // assert.equal(userBalance, 95000);
+    });
+  });
+
+  describe("Settle Payment", async () => {
+    let amount = 5;
+    let encodeAmount = web3.eth.abi.encodeParameter(
+      "uint256",
+      web3.utils.toWei(amount.toString(), "ether")
+    );
+    let stripEncodeAmount = web3.utils.stripHexPrefix(encodeAmount);
+    let sellerAmount =
+      seller.toString().toLowerCase() + stripEncodeAmount.substring(40);
+    let arrSellerAmount = [sellerAmount];
+    let sellerBalance, bfeContractBalance;
+
+    before(async () => {
+      sellerBalance = await SWAD.balanceOf(seller, { from: seller });
+      bfeContractBalance = await SWAD.balanceOf(BFE.address, { from: seller });
+      // User will call the settlepayment
+      await BFE.SettlePayment(arrSellerAmount, { from: user });
+      sellerBalanceAfterSettle = await SWAD.balanceOf(seller, { from: seller });
+      bfeContractBalanceAfterSettle = await SWAD.balanceOf(BFE.address, {
+        from: seller,
+      });
+    });
+    it("contract swad transferred to seller", async () => {
+      sellerBalance = web3.utils.fromWei(sellerBalance, "ether");
+      sellerBalanceAfterSettle = web3.utils.fromWei(
+        sellerBalanceAfterSettle,
+        "ether"
+      );
+      bfeContractBalance = web3.utils.fromWei(bfeContractBalance, "ether");
+      bfeContractBalanceAfterSettle = web3.utils.fromWei(
+        bfeContractBalanceAfterSettle,
+        "ether"
+      );
+      // console.log("sellerBalance", sellerBalance);
+      // console.log("sellerBalanceAfterSettle", sellerBalanceAfterSettle);
+      // console.log("bfeContractBalance", bfeContractBalance);
+      // console.log(
+      //   "bfeContractBalanceAfterSettle",
+      //   bfeContractBalanceAfterSettle
+      // );
+      assert.equal(
+        parseInt(sellerBalance) + amount,
+        parseInt(sellerBalanceAfterSettle)
+      );
+      assert.equal(
+        parseInt(bfeContractBalance) - amount,
+        parseInt(bfeContractBalanceAfterSettle)
+      );
+    });
+  });
+});
